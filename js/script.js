@@ -1,9 +1,9 @@
-document.addEventListener("DOMContentLoaded", () => {
-    let tasks = JSON.parse(localStorage.getItem("taskflow_tasks")) || [];
-    let collaborators = JSON.parse(localStorage.getItem("taskflow_collaborators")) || [];
-    let projects = JSON.parse(localStorage.getItem("taskflow_projects")) || [];
+document.addEventListener("DOMContentLoaded", async () => {
 
-    const JSON_DATA_URL = "data.json";
+    let tasks = [];
+    let collaborators = [];
+    let projects = [];
+
     const FILTER_STORAGE_KEY = "taskflow_task_filter";
 
     /* =========================================================
@@ -309,21 +309,58 @@ document.addEventListener("DOMContentLoaded", () => {
         }));
 
     function saveData() {
-        localStorage.setItem(
-            "taskflow_tasks",
-            JSON.stringify(tasks)
-        );
-
-        localStorage.setItem(
-            "taskflow_collaborators",
-            JSON.stringify(collaborators)
-        );
-
-        localStorage.setItem(
-            "taskflow_projects",
-            JSON.stringify(projects)
-        );
+    // Los datos principales ya no se guardan en localStorage.
+    // PostgreSQL / Neon será la fuente oficial de información.
     }
+    async function loadDataFromAPI() {
+
+    try {
+
+        const [
+            apiTasks,
+            apiProjects,
+            apiCollaborators
+        ] = await Promise.all([
+            TaskFlowAPI.getTasks(),
+            TaskFlowAPI.getProjects(),
+            TaskFlowAPI.getCollaborators()
+        ]);
+
+        tasks = apiTasks.map(normalizeTask);
+
+        projects = apiProjects.map(project => ({
+            ...project,
+            icon: getProjectIcon(project)
+        }));
+
+        collaborators = apiCollaborators;
+
+        console.log(
+            "Datos cargados desde PostgreSQL:",
+            {
+                tasks,
+                projects,
+                collaborators
+            }
+        );
+
+        return true;
+
+    } catch (error) {
+
+        console.error(
+            "Error cargando datos desde PostgreSQL:",
+            error
+        );
+
+        showToast(
+            "No se pudo conectar con el servidor.",
+            "error"
+        );
+
+        return false;
+    }
+}
 
     let currentMembersTaskId =
         null;
@@ -1011,7 +1048,7 @@ document.addEventListener("DOMContentLoaded", () => {
        CREAR TAREA
        ========================================================= */
 
-    function createTask() {
+    async function createTask() {
         const title =
             inlineTaskInput.value.trim();
 
@@ -1026,7 +1063,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const task = {
-            id: generateId("task"),
             title,
             priority:
                 inlinePriority.value ||
@@ -1039,33 +1075,53 @@ document.addEventListener("DOMContentLoaded", () => {
                 inlineDate.value ||
                 "",
             completed: false,
-            createdAt:
-                new Date().toISOString(),
             completedAt: null
         };
 
-        tasks.push(task);
+        try {
+            const createdTask =
+                await TaskFlowAPI.createTask(
+                    task
+                );
 
-        saveData();
+            tasks.push(
+                normalizeTask(
+                    createdTask
+                )
+            );
 
-        inlineTaskInput.value =
-            "";
+            inlineTaskInput.value =
+                "";
 
-        inlinePriority.value =
-            "media";
+            inlinePriority.value =
+                "media";
 
-        inlineProject.value =
-            "";
+            inlineProject.value =
+                "";
 
-        inlineDate.value =
-            "";
+            inlineDate.value =
+                new Date()
+                    .toISOString()
+                    .split("T")[0];
 
-        renderTasks();
-        updateAll();
+            updateAll();
 
-        showToast(
-            "Tarea creada correctamente."
-        );
+            showToast(
+                "Tarea creada correctamente."
+            );
+
+        } catch (error) {
+            console.error(
+                "Error creando tarea:",
+                error
+            );
+
+            showToast(
+                error.message ||
+                "No se pudo crear la tarea.",
+                "error"
+            );
+        }
     }
 
     if (saveInlineTask) {
@@ -1575,75 +1631,106 @@ document.addEventListener("DOMContentLoaded", () => {
         );
     }
 
-    function completeTask(id) {
+    async function completeTask(id) {
         const task =
             tasks.find(
-                t =>
-                    t.id === id
+                t => t.id === id
             );
 
         if (!task) return;
 
-        task.completed =
-            true;
+        try {
+            const updated =
+                await TaskFlowAPI.completeTask(
+                    id
+                );
 
-        task.status =
-            "Finalizado";
+            const previousMembers =
+                Array.isArray(task.members)
+                    ? [...task.members]
+                    : [];
 
-        task.ESTADO =
-            "Finalizado";
+            Object.assign(
+                task,
+                normalizeTask(updated)
+            );
 
-        task.completedAt =
-            new Date().toISOString();
+            task.members =
+                previousMembers;
 
-        saveData();
+            updateAll();
 
-        renderTasks();
-        renderCompleted();
-        updateAll();
+            showToast(
+                "Tarea completada."
+            );
 
-        showToast(
-            "Tarea completada."
-        );
+        } catch (error) {
+            console.error(
+                "Error completando tarea:",
+                error
+            );
+
+            showToast(
+                error.message ||
+                "No se pudo completar la tarea.",
+                "error"
+            );
+
+            renderTasks();
+        }
     }
 
-    function restoreTask(id) {
+    async function restoreTask(id) {
         const task =
             tasks.find(
-                t =>
-                    t.id === id
+                t => t.id === id
             );
 
         if (!task) return;
 
-        task.completed =
-            false;
+        try {
+            const updated =
+                await TaskFlowAPI.reopenTask(
+                    id
+                );
 
-        task.status =
-            "Pendiente";
+            const previousMembers =
+                Array.isArray(task.members)
+                    ? [...task.members]
+                    : [];
 
-        task.ESTADO =
-            "Pendiente";
+            Object.assign(
+                task,
+                normalizeTask(updated)
+            );
 
-        task.completedAt =
-            null;
+            task.members =
+                previousMembers;
 
-        saveData();
+            updateAll();
 
-        renderTasks();
-        renderCompleted();
-        updateAll();
+            showToast(
+                "Tarea restaurada correctamente."
+            );
 
-        showToast(
-            "Tarea restaurada correctamente."
-        );
+        } catch (error) {
+            console.error(
+                "Error restaurando tarea:",
+                error
+            );
+
+            showToast(
+                error.message ||
+                "No se pudo restaurar la tarea.",
+                "error"
+            );
+        }
     }
 
-    function deleteTask(id) {
+    async function deleteTask(id) {
         const task =
             tasks.find(
-                t =>
-                    t.id === id
+                t => t.id === id
             );
 
         if (!task) return;
@@ -1661,20 +1748,34 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        tasks =
-            tasks.filter(
-                t =>
-                    t.id !== id
+        try {
+            await TaskFlowAPI.deleteTask(
+                id
             );
 
-        saveData();
+            tasks =
+                tasks.filter(
+                    t => t.id !== id
+                );
 
-        renderTasks();
-        updateAll();
+            updateAll();
 
-        showToast(
-            "Tarea eliminada."
-        );
+            showToast(
+                "Tarea eliminada."
+            );
+
+        } catch (error) {
+            console.error(
+                "Error eliminando tarea:",
+                error
+            );
+
+            showToast(
+                error.message ||
+                "No se pudo eliminar la tarea.",
+                "error"
+            );
+        }
     }
 
     if (taskSearch) {
@@ -2093,341 +2194,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    /* =========================================================
-       RENDERIZAR PROYECTOS
-       ========================================================= */
 
-    function renderProjects() {
-        if (!projectsGrid) {
-            return;
-        }
-
-        projectsGrid.innerHTML =
-            "";
-
-        if (!projects.length) {
-            emptyProjects.style.display =
-                "flex";
-
-            return;
-        }
-
-        emptyProjects.style.display =
-            "none";
-
-        projects.forEach(
-            project => {
-                const projectTasks =
-                    tasks.filter(
-                        task =>
-                            task.projectId ===
-                            project.id
-                    );
-
-                const completed =
-                    projectTasks.filter(
-                        task =>
-                            isTaskCompleted(
-                                task
-                            )
-                    ).length;
-
-                const total =
-                    projectTasks.length;
-
-                const progress =
-                    total
-                        ? Math.round(
-                            completed /
-                            total *
-                            100
-                        )
-                        : 0;
-
-                const icon =
-                    getProjectIcon(
-                        project
-                    );
-
-                const card =
-                    document.createElement(
-                        "div"
-                    );
-
-                card.className =
-                    "project-card";
-
-                card.innerHTML = `
-                    <div class="project-card-header">
-
-                        <div class="project-icon">
-                            <i class="fa-solid ${escapeHTML(icon)}"></i>
-                        </div>
-
-                        <button
-                            class="row-action danger"
-                            data-delete-project="${project.id}"
-                        >
-                            <i class="fa-solid fa-trash"></i>
-                        </button>
-
-                    </div>
-
-                    <h3>
-                        ${escapeHTML(
-                            project.name
-                        )}
-                    </h3>
-
-                    <p>
-                        ${escapeHTML(
-                            project.description ||
-                            "Sin descripción"
-                        )}
-                    </p>
-
-                    <div class="project-progress">
-
-                        <div class="project-progress-header">
-                            <span>Progreso</span>
-
-                            <strong>
-                                ${progress}%
-                            </strong>
-                        </div>
-
-                        <div class="progress-track">
-                            <div
-                                class="progress-fill"
-                                style="width:${progress}%"
-                            ></div>
-                        </div>
-
-                    </div>
-
-                    <div class="project-card-footer">
-                        <span>
-                            ${completed}/${total} tareas
-                        </span>
-                    </div>
-                `;
-
-                projectsGrid.appendChild(
-                    card
-                );
-            }
-        );
-
-        projectsGrid
-            .querySelectorAll(
-                "[data-delete-project]"
-            )
-            .forEach(button => {
-                button.addEventListener(
-                    "click",
-                    () =>
-                        deleteProject(
-                            button.dataset
-                                .deleteProject
-                        )
-                );
-            });
-    }
-
-    /* =========================================================
-       ELIMINAR PROYECTO
-       ========================================================= */
-
-    function deleteProject(id) {
-        const project =
-            projects.find(
-                p =>
-                    p.id === id
-            );
-
-        if (!project) {
-            return;
-        }
-
-        if (
-            tasks.some(
-                task =>
-                    task.projectId ===
-                    id
-            )
-        ) {
-            showToast(
-                "No puedes eliminar un proyecto que tiene tareas asignadas.",
-                "warning"
-            );
-
-            return;
-        }
-
-        if (
-            !confirm(
-                `¿Eliminar el proyecto "${project.name}"?`
-            )
-        ) {
-            return;
-        }
-
-        projects =
-            projects.filter(
-                p =>
-                    p.id !== id
-            );
-
-        saveData();
-
-        renderProjects();
-        renderProjectSelects();
-
-        showToast(
-            "Proyecto eliminado."
-        );
-    }
-
-    /* =========================================================
-       FORMULARIO DE PROYECTO
-       ========================================================= */
-
-    document
-        .getElementById(
-            "projectForm"
-        )
-        ?.addEventListener(
-            "submit",
-            event => {
-                event.preventDefault();
-
-                const name =
-                    document
-                        .getElementById(
-                            "projectName"
-                        )
-                        .value
-                        .trim();
-
-                const description =
-                    document
-                        .getElementById(
-                            "projectDescription"
-                        )
-                        .value
-                        .trim();
-
-                if (!name) {
-                    return;
-                }
-
-                const selectedIcon =
-                    normalizeProjectIcon(
-                        projectIconInput?.value ||
-                        DEFAULT_PROJECT_ICON
-                    );
-
-                /*
-                 * Si currentEditingProjectId
-                 * existe, actualizamos el proyecto.
-                 *
-                 * Si no existe, creamos uno nuevo.
-                 */
-
-                if (
-                    currentEditingProjectId
-                ) {
-                    const project =
-                        projects.find(
-                            p =>
-                                p.id ===
-                                currentEditingProjectId
-                        );
-
-                    if (project) {
-                        project.name =
-                            name;
-
-                        project.description =
-                            description;
-
-                        project.icon =
-                            selectedIcon;
-                    }
-
-                    currentEditingProjectId =
-                        null;
-
-                    showToast(
-                        "Proyecto actualizado."
-                    );
-                } else {
-                    projects.push({
-                        id: generateId(
-                            "project"
-                        ),
-                        name,
-                        description,
-                        icon:
-                            selectedIcon,
-                        createdAt:
-                            new Date().toISOString()
-                    });
-
-                    showToast(
-                        "Proyecto creado."
-                    );
-                }
-
-                saveData();
-
-                event.target.reset();
-
-                setSelectedProjectIcon(
-                    DEFAULT_PROJECT_ICON
-                );
-
-                closeModal(
-                    "projectModal"
-                );
-
-                renderProjects();
-                renderProjectSelects();
-            }
-        );
-
-    if (newProjectButton) {
-        newProjectButton.addEventListener(
-            "click",
-            () => {
-                currentEditingProjectId =
-                    null;
-
-                const form =
-                    document.getElementById(
-                        "projectForm"
-                    );
-
-                if (form) {
-                    form.reset();
-                }
-
-                setSelectedProjectIcon(
-                    DEFAULT_PROJECT_ICON
-                );
-
-                initializeProjectIconSelector();
-
-                openModal(
-                    "projectModal"
-                );
-            }
-        );
-    }
-
-    /* =========================================================
-       CONTINUACIÓN EN PARTE 2
-       ========================================================= */
            /* =========================================================
        RENDERIZAR PROYECTOS
        ========================================================= */
@@ -2587,7 +2354,7 @@ document.addEventListener("DOMContentLoaded", () => {
        ELIMINAR PROYECTO
        ========================================================= */
 
-    function deleteProject(id) {
+    async function deleteProject(id) {
 
         const project =
             projects.find(
@@ -2603,7 +2370,6 @@ document.addEventListener("DOMContentLoaded", () => {
             );
 
         if (hasTasks) {
-
             showToast(
                 "No puedes eliminar un proyecto que tiene tareas asignadas.",
                 "warning"
@@ -2620,19 +2386,35 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        projects =
-            projects.filter(
-                p => p.id !== id
+        try {
+            await TaskFlowAPI.deleteProject(
+                id
             );
 
-        saveData();
+            projects =
+                projects.filter(
+                    p => p.id !== id
+                );
 
-        renderProjects();
-        renderProjectSelects();
+            renderProjects();
+            renderProjectSelects();
 
-        showToast(
-            "Proyecto eliminado."
-        );
+            showToast(
+                "Proyecto eliminado."
+            );
+
+        } catch (error) {
+            console.error(
+                "Error eliminando proyecto:",
+                error
+            );
+
+            showToast(
+                error.message ||
+                "No se pudo eliminar el proyecto.",
+                "error"
+            );
+        }
     }
 
 
@@ -2644,7 +2426,7 @@ document.addEventListener("DOMContentLoaded", () => {
         .getElementById("projectForm")
         ?.addEventListener(
             "submit",
-            event => {
+            async event => {
 
                 event.preventDefault();
 
@@ -2664,27 +2446,17 @@ document.addEventListener("DOMContentLoaded", () => {
                         ?.value
                         .trim();
 
-                /*
-                 * OBTENER ICONO SELECCIONADO
-                 *
-                 * El HTML debe tener un elemento:
-                 *
-                 * #projectIcon
-                 *
-                 * Puede ser un select o input.
-                 */
-
-                const iconInput =
-                    document.getElementById(
-                        "projectIcon"
+                const icon =
+                    normalizeProjectIcon(
+                        document
+                            .getElementById(
+                                "projectIcon"
+                            )
+                            ?.value ||
+                        DEFAULT_PROJECT_ICON
                     );
 
-                const icon =
-                    iconInput?.value ||
-                    "fa-folder";
-
                 if (!name) {
-
                     showToast(
                         "Escribe el nombre del proyecto.",
                         "warning"
@@ -2693,38 +2465,51 @@ document.addEventListener("DOMContentLoaded", () => {
                     return;
                 }
 
-                projects.push({
+                try {
+                    const createdProject =
+                        await TaskFlowAPI.createProject({
+                            name,
+                            description,
+                            icon
+                        });
 
-                    id:
-                        generateId(
-                            "project"
-                        ),
+                    projects.push({
+                        ...createdProject,
+                        icon:
+                            getProjectIcon(
+                                createdProject
+                            )
+                    });
 
-                    name,
+                    event.target.reset();
 
-                    description,
+                    setSelectedProjectIcon(
+                        DEFAULT_PROJECT_ICON
+                    );
 
-                    icon,
+                    closeModal(
+                        "projectModal"
+                    );
 
-                    createdAt:
-                        new Date().toISOString()
+                    renderProjects();
+                    renderProjectSelects();
 
-                });
+                    showToast(
+                        "Proyecto creado."
+                    );
 
-                saveData();
+                } catch (error) {
+                    console.error(
+                        "Error creando proyecto:",
+                        error
+                    );
 
-                event.target.reset();
-
-                closeModal(
-                    "projectModal"
-                );
-
-                renderProjects();
-                renderProjectSelects();
-
-                showToast(
-                    "Proyecto creado."
-                );
+                    showToast(
+                        error.message ||
+                        "No se pudo crear el proyecto.",
+                        "error"
+                    );
+                }
             }
         );
 
@@ -2936,7 +2721,7 @@ document.addEventListener("DOMContentLoaded", () => {
        ELIMINAR COLABORADOR
        ========================================================= */
 
-    function deleteCollaborator(id) {
+    async function deleteCollaborator(id) {
 
         const collaborator =
             collaborators.find(
@@ -2953,33 +2738,50 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        collaborators =
-            collaborators.filter(
-                c => c.id !== id
+        try {
+            await TaskFlowAPI.deleteCollaborator(
+                id
             );
 
-        tasks.forEach(task => {
+            collaborators =
+                collaborators.filter(
+                    c => c.id !== id
+                );
 
-            if (task.members) {
+            tasks.forEach(task => {
+                if (
+                    Array.isArray(
+                        task.members
+                    )
+                ) {
+                    task.members =
+                        task.members.filter(
+                            memberId =>
+                                memberId !== id
+                        );
+                }
+            });
 
-                task.members =
-                    task.members.filter(
-                        memberId =>
-                            memberId !== id
-                    );
+            renderCollaborators();
+            renderTasks();
+            renderCompleted();
 
-            }
+            showToast(
+                "Colaborador eliminado."
+            );
 
-        });
+        } catch (error) {
+            console.error(
+                "Error eliminando colaborador:",
+                error
+            );
 
-        saveData();
-
-        renderCollaborators();
-        renderTasks();
-
-        showToast(
-            "Colaborador eliminado."
-        );
+            showToast(
+                error.message ||
+                "No se pudo eliminar el colaborador.",
+                "error"
+            );
+        }
     }
 
 
@@ -2991,7 +2793,7 @@ document.addEventListener("DOMContentLoaded", () => {
         .getElementById("collaboratorForm")
         ?.addEventListener(
             "submit",
-            event => {
+            async event => {
 
                 event.preventDefault();
 
@@ -3020,7 +2822,6 @@ document.addEventListener("DOMContentLoaded", () => {
                         .trim();
 
                 if (!name) {
-
                     showToast(
                         "Escribe el nombre del colaborador.",
                         "warning"
@@ -3029,38 +2830,42 @@ document.addEventListener("DOMContentLoaded", () => {
                     return;
                 }
 
-                collaborators.push({
+                try {
+                    const createdCollaborator =
+                        await TaskFlowAPI.createCollaborator({
+                            name,
+                            role,
+                            email
+                        });
 
-                    id:
-                        generateId(
-                            "collaborator"
-                        ),
+                    collaborators.push(
+                        createdCollaborator
+                    );
 
-                    name,
+                    event.target.reset();
 
-                    role,
+                    closeModal(
+                        "collaboratorModal"
+                    );
 
-                    email,
+                    renderCollaborators();
 
-                    createdAt:
-                        new Date().toISOString()
+                    showToast(
+                        "Colaborador agregado."
+                    );
 
-                });
+                } catch (error) {
+                    console.error(
+                        "Error creando colaborador:",
+                        error
+                    );
 
-                saveData();
-
-                event.target.reset();
-
-                closeModal(
-                    "collaboratorModal"
-                );
-
-                renderCollaborators();
-
-                showToast(
-                    "Colaborador agregado."
-                );
-
+                    showToast(
+                        error.message ||
+                        "No se pudo crear el colaborador.",
+                        "error"
+                    );
+                }
             }
         );
 
@@ -3277,7 +3082,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         saveMembersButton.addEventListener(
             "click",
-            () => {
+            async () => {
 
                 if (
                     !currentMembersTaskId
@@ -3294,25 +3099,76 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 if (!task) return;
 
-                task.members =
-                    [...selectedMembers];
+                const previousMembers =
+                    Array.isArray(
+                        task.members
+                    )
+                        ? [...task.members]
+                        : [];
 
-                saveData();
+                const toAssign =
+                    selectedMembers.filter(
+                        memberId =>
+                            !previousMembers.includes(
+                                memberId
+                            )
+                    );
 
-                closeModal(
-                    "membersModal"
-                );
+                const toRemove =
+                    previousMembers.filter(
+                        memberId =>
+                            !selectedMembers.includes(
+                                memberId
+                            )
+                    );
 
-                renderTasks();
-                renderCollaborators();
+                try {
+                    await Promise.all([
+                        ...toAssign.map(
+                            memberId =>
+                                TaskFlowAPI.assignCollaborator(
+                                    task.id,
+                                    memberId
+                                )
+                        ),
+                        ...toRemove.map(
+                            memberId =>
+                                TaskFlowAPI.removeCollaborator(
+                                    task.id,
+                                    memberId
+                                )
+                        )
+                    ]);
 
-                showToast(
-                    "Integrantes actualizados."
-                );
+                    task.members =
+                        [...selectedMembers];
 
+                    closeModal(
+                        "membersModal"
+                    );
+
+                    renderTasks();
+                    renderCollaborators();
+                    renderCompleted();
+
+                    showToast(
+                        "Integrantes actualizados."
+                    );
+
+                } catch (error) {
+                    console.error(
+                        "Error actualizando integrantes:",
+                        error
+                    );
+
+                    showToast(
+                        error.message ||
+                        "No se pudieron actualizar los integrantes.",
+                        "error"
+                    );
+                }
             }
         );
-
     }
 
 
@@ -3413,7 +3269,7 @@ document.addEventListener("DOMContentLoaded", () => {
         .getElementById("taskEditForm")
         ?.addEventListener(
             "submit",
-            event => {
+            async event => {
 
                 event.preventDefault();
 
@@ -3426,60 +3282,117 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 if (!task) return;
 
-                const titleInput =
-                    document.getElementById(
-                        "editTaskTitle"
-                    );
-
-                const priorityInput =
-                    document.getElementById(
-                        "editTaskPriority"
-                    );
-
-                const projectInput =
-                    document.getElementById(
-                        "editTaskProject"
-                    );
-
-                const dateInput =
-                    document.getElementById(
-                        "editTaskDate"
-                    );
-
-                task.title =
-                    titleInput
+                const title =
+                    document
+                        .getElementById(
+                            "editTaskTitle"
+                        )
                         ?.value
                         .trim() ||
                     "";
 
-                task.priority =
-                    priorityInput
+                const priority =
+                    document
+                        .getElementById(
+                            "editTaskPriority"
+                        )
                         ?.value ||
                     "media";
 
-                task.projectId =
-                    projectInput
+                const projectId =
+                    document
+                        .getElementById(
+                            "editTaskProject"
+                        )
                         ?.value ||
                     "";
 
-                task.date =
-                    dateInput
+                const date =
+                    document
+                        .getElementById(
+                            "editTaskDate"
+                        )
                         ?.value ||
                     "";
 
-                saveData();
+                if (!title) {
+                    showToast(
+                        "Escribe el nombre de la tarea.",
+                        "warning"
+                    );
 
-                closeModal(
-                    "taskEditModal"
-                );
+                    return;
+                }
 
-                renderTasks();
-                updateAll();
+                try {
+                    const previousMembers =
+                        Array.isArray(
+                            task.members
+                        )
+                            ? [...task.members]
+                            : [];
 
-                showToast(
-                    "Tarea actualizada."
-                );
+                    const completed =
+                        task.completed;
 
+                    const completedAt =
+                        task.completedAt;
+
+                    const updated =
+                        await TaskFlowAPI.updateTask(
+                            task.id,
+                            {
+                                ...task,
+                                title,
+                                priority,
+                                projectId,
+                                date
+                            }
+                        );
+
+                    Object.assign(
+                        task,
+                        normalizeTask(updated)
+                    );
+
+                    task.members =
+                        previousMembers;
+
+                    task.completed =
+                        completed;
+
+                    task.completedAt =
+                        completedAt;
+
+                    if (completed) {
+                        task.status =
+                            "Finalizado";
+                        task.ESTADO =
+                            "Finalizado";
+                    }
+
+                    closeModal(
+                        "taskEditModal"
+                    );
+
+                    updateAll();
+
+                    showToast(
+                        "Tarea actualizada."
+                    );
+
+                } catch (error) {
+                    console.error(
+                        "Error actualizando tarea:",
+                        error
+                    );
+
+                    showToast(
+                        error.message ||
+                        "No se pudo actualizar la tarea.",
+                        "error"
+                    );
+                }
             }
         );
 
@@ -4427,244 +4340,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     /* =========================================================
-       DATOS INICIALES
-       ========================================================= */
-
-    function createInitialData() {
-
-        if (
-            tasks.length === 0 &&
-            projects.length === 0 &&
-            collaborators.length === 0
-        ) {
-
-            projects = [
-
-                {
-
-                    id:
-                        generateId(
-                            "project"
-                        ),
-
-                    name:
-                        "Organización",
-
-                    description:
-                        "Tareas generales y administrativas.",
-
-                    /*
-                     * ICONO PREDETERMINADO
-                     */
-
-                    icon:
-                        "fa-folder",
-
-                    createdAt:
-                        new Date().toISOString()
-
-                }
-
-            ];
-
-            saveData();
-
-        }
-
-    }
-
-
-    /* =========================================================
-       CARGAR TAREAS DESDE data.json
-       ========================================================= */
-
-    async function loadPreloadedTasksFromJSON() {
-
-        try {
-
-            const response =
-                await fetch(
-                    JSON_DATA_URL
-                );
-
-            if (!response.ok) {
-                return;
-            }
-
-            const rawTasks =
-                await response.json();
-
-            if (
-                !Array.isArray(
-                    rawTasks
-                )
-            ) {
-                return;
-            }
-
-            let added = false;
-
-            const existingKeys =
-                new Set(
-                    tasks.map(task =>
-                        [
-                            task[
-                                "TAREA PRINCIPAL"
-                            ] ||
-                            task.title ||
-                            "",
-
-                            task[
-                                "FECHA REGISTRO"
-                            ] ||
-                            task.date ||
-                            "",
-
-                            task[
-                                "EMPRESA"
-                            ] ||
-                            "",
-
-                            task[
-                                "COLABORADORES"
-                            ] ||
-                            ""
-
-                        ].join("|")
-                    )
-                );
-
-
-            rawTasks.forEach(
-                rawTask => {
-
-                    const key =
-                        [
-                            rawTask[
-                                "TAREA PRINCIPAL"
-                            ] || "",
-
-                            rawTask[
-                                "FECHA REGISTRO"
-                            ] || "",
-
-                            rawTask[
-                                "EMPRESA"
-                            ] || "",
-
-                            rawTask[
-                                "COLABORADORES"
-                            ] || ""
-
-                        ].join("|");
-
-
-                    if (
-                        existingKeys.has(
-                            key
-                        )
-                    ) {
-
-                        const existing =
-                            tasks.find(
-                                task =>
-                                    [
-                                        task[
-                                            "TAREA PRINCIPAL"
-                                        ] ||
-                                        task.title ||
-                                        "",
-
-                                        task[
-                                            "FECHA REGISTRO"
-                                        ] ||
-                                        task.date ||
-                                        "",
-
-                                        task[
-                                            "EMPRESA"
-                                        ] ||
-                                        "",
-
-                                        task[
-                                            "COLABORADORES"
-                                        ] ||
-                                        ""
-
-                                    ].join("|") ===
-                                    key
-                            );
-
-                        if (existing) {
-
-                            normalizeTask(
-                                existing
-                            );
-
-                        }
-
-                        return;
-                    }
-
-
-                    const id =
-                        "json_" +
-                        hashString(
-                            key
-                        );
-
-
-                    const newTask =
-                        normalizeTask({
-
-                            ...rawTask,
-
-                            id
-
-                        });
-
-
-                    tasks.push(
-                        newTask
-                    );
-
-                    existingKeys.add(
-                        key
-                    );
-
-                    added = true;
-
-                }
-            );
-
-
-            tasks =
-                tasks.map(
-                    normalizeTask
-                );
-
-            saveData();
-
-
-            if (added) {
-
-                updateAll();
-
-            }
-
-        } catch (error) {
-
-            console.error(
-                "No se pudo cargar el archivo de tareas preregistradas:",
-                error
-            );
-
-        }
-
-    }
-
-
-    /* =========================================================
        FECHA PREDETERMINADA
        ========================================================= */
 
@@ -4682,40 +4357,43 @@ document.addEventListener("DOMContentLoaded", () => {
        INICIALIZACIÓN
        ========================================================= */
 
-    createInitialData();
-
-
     views.forEach(
         view => {
-
             view.style.display =
                 "none";
-
         }
     );
-
 
     const initialView =
         document.getElementById(
             "view-dashboard"
         );
 
-
     if (initialView) {
-
         initialView.style.display =
             "block";
 
         initialView.classList.add(
             "active"
         );
-
     }
 
+    async function initializeApp() {
 
-    updateAll();
+        const connected =
+            await loadDataFromAPI();
 
+        if (!connected) {
+            return;
+        }
 
-    loadPreloadedTasksFromJSON();
+        updateAll();
+
+        console.log(
+            "TaskFlow conectado a PostgreSQL correctamente."
+        );
+    }
+
+    await initializeApp();
 
 });
