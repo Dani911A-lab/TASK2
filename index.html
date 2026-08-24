@@ -1,0 +1,1726 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>TaskFlow</title>
+<link rel="stylesheet" href="css/styles.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+
+<body>
+
+<div class="app">
+
+<header class="topbar">
+
+<div class="brand">
+<div class="brand-mark">
+<i class="fa-solid fa-check"></i>
+</div>
+
+<div class="brand-name">
+TaskFlow
+</div>
+</div>
+
+<nav class="main-menu">
+
+<button class="menu-item active" data-view="tareas">
+<i class="fa-solid fa-list-check"></i>
+<span>Mis tareas</span>
+</button>
+
+<button class="menu-item" data-view="dashboard">
+<i class="fa-solid fa-chart-simple"></i>
+<span>Avance</span>
+</button>
+
+<button class="menu-item" data-view="colaboradores">
+<i class="fa-solid fa-users"></i>
+<span>Colaboradores</span>
+</button>
+
+<button class="menu-item" data-view="proyectos">
+<i class="fa-solid fa-folder"></i>
+<span>Proyectos</span>
+</button>
+
+<button class="menu-item" data-view="completadas">
+<i class="fa-solid fa-circle-check"></i>
+<span>Completadas</span>
+</button>
+
+</nav>
+
+<div class="topbar-actions">
+
+<button class="icon-button" id="searchButton" title="Buscar">
+<i class="fa-solid fa-magnifying-glass"></i>
+</button>
+
+<button class="icon-button" id="notificationButton" title="Notificaciones">
+<i class="fa-regular fa-bell"></i>
+<span class="notification-dot"></span>
+</button>
+
+<div class="profile">
+
+<div class="profile-avatar">
+D
+</div>
+
+<div class="profile-info">
+<strong>Daniel</strong>
+<span>Administrador</span>
+</div>
+
+<i class="fa-solid fa-chevron-down"></i>
+
+</div>
+
+</div>
+
+</header>
+
+
+<main class="main-content">
+
+
+<!-- =========================================================
+     MIS TAREAS
+     ========================================================= -->
+
+<section class="view active" id="view-tareas">
+
+<div class="page-header">
+
+<div>
+
+<span class="eyebrow">
+GESTIÓN DE TRABAJO
+</span>
+
+<h1>
+Mis tareas
+</h1>
+
+<p>
+Organiza, asigna y controla tus tareas desde un solo lugar.
+</p>
+
+</div>
+
+<div class="header-actions">
+
+<button class="secondary-button" id="filterButton">
+<i class="fa-solid fa-sliders"></i>
+<span>Filtros</span>
+</button>
+
+<button class="primary-button" id="newTaskButton">
+<i class="fa-solid fa-plus"></i>
+<span>Nueva tarea</span>
+</button>
+
+</div>
+
+</div>
+
+
+<!-- RESUMEN -->
+
+<div class="task-summary">
+
+<div class="summary-item">
+
+<div class="summary-icon blue">
+<i class="fa-solid fa-list-check"></i>
+</div>
+
+<div>
+<span>Total</span>
+<strong id="totalTasks">0</strong>
+</div>
+
+</div>
+
+
+<div class="summary-item">
+
+<div class="summary-icon orange">
+<i class="fa-regular fa-clock"></i>
+</div>
+
+<div>
+<span>Pendientes</span>
+<strong id="pendingTasks">0</strong>
+</div>
+
+</div>
+
+
+<div class="summary-item">
+
+<div class="summary-icon green">
+<i class="fa-solid fa-check"></i>
+</div>
+
+<div>
+<span>Completadas</span>
+<strong id="completedTasks">0</strong>
+</div>
+
+</div>
+
+
+<div class="summary-item">
+
+<div class="summary-icon purple">
+<i class="fa-solid fa-chart-line"></i>
+</div>
+
+<div>
+<span>Avance</span>
+<strong id="taskProgress">0%</strong>
+</div>
+
+</div>
+
+</div>
+
+
+<!-- =========================================================
+     CONTENEDOR PRINCIPAL DE TAREAS
+     ========================================================= -->
+
+<div class="task-board" id="taskBoard">
+
+
+<!-- =========================================================
+     BARRA SUPERIOR FIJA
+     ========================================================= -->
+
+<div class="task-board-toolbar">
+
+<div class="task-board-title">
+
+<h2>
+Tareas
+</h2>
+
+<span id="taskCountLabel">
+0 tareas
+</span>
+
+</div>
+
+
+<div class="task-board-tools">
+
+<div class="quick-search">
+
+<i class="fa-solid fa-magnifying-glass"></i>
+
+<input
+type="text"
+id="taskSearch"
+placeholder="Buscar tarea..."
+>
+
+</div>
+
+
+<select id="taskFilterPriority">
+
+<option value="all">
+Todas las prioridades
+</option>
+
+<option value="alta">
+Alta
+</option>
+
+<option value="media">
+Media
+</option>
+
+<option value="baja">
+Baja
+</option>
+
+</select>
+
+
+<select id="taskFilterProject">
+
+<option value="all">
+Todos los proyectos
+</option>
+
+</select>
+
+</div>
+
+</div>
+
+
+<!-- =========================================================
+     ZONA EXCLUSIVA DE SCROLL
+     SOLO LAS TAREAS SE DESPLAZAN AQUÍ
+     ========================================================= -->
+
+<div class="task-table-wrapper" id="taskScrollArea">
+
+
+<table class="task-table">
+
+<thead>
+
+<tr>
+
+<th class="col-check"></th>
+
+<th class="col-task">
+Tarea
+</th>
+
+<th class="col-priority">
+Prioridad
+</th>
+
+<th class="col-project">
+Proyecto
+</th>
+
+<th class="col-members">
+Integrantes
+</th>
+
+<th class="col-date">
+Fecha
+</th>
+
+<th class="col-status">
+Estado
+</th>
+
+<th class="col-actions"></th>
+
+</tr>
+
+</thead>
+
+
+<tbody id="taskTableBody">
+</tbody>
+
+</table>
+
+
+<!-- ESTADO VACÍO -->
+
+<div class="empty-table" id="emptyTaskState">
+
+<div class="empty-table-icon">
+
+<i class="fa-solid fa-list-check"></i>
+
+</div>
+
+<h3>
+No hay tareas todavía
+</h3>
+
+<p>
+Empieza escribiendo una tarea en la primera fila.
+</p>
+
+</div>
+
+
+</div>
+
+
+<!-- =========================================================
+     CREACIÓN DE TAREA
+     ESTA FILA QUEDA FUERA DEL SCROLL
+     ========================================================= -->
+
+<div class="task-input-row" id="taskInputRow">
+
+
+<div class="task-input-check">
+</div>
+
+
+<div class="task-input-main">
+
+<input
+type="text"
+id="inlineTaskInput"
+placeholder="Escribe una nueva tarea..."
+>
+
+</div>
+
+
+<div class="task-input-priority">
+
+<select id="inlinePriority">
+
+<option value="media">
+Media
+</option>
+
+<option value="alta">
+Alta
+</option>
+
+<option value="baja">
+Baja
+</option>
+
+</select>
+
+</div>
+
+
+<div class="task-input-project">
+
+<select id="inlineProject">
+
+<option value="">
+Proyecto
+</option>
+
+</select>
+
+</div>
+
+
+<div class="task-input-members">
+
+<button
+type="button"
+id="inlineMembersButton"
+>
+
+<i class="fa-solid fa-user-plus"></i>
+
+<span>
+Asignar
+</span>
+
+</button>
+
+</div>
+
+
+<div class="task-input-date">
+
+<input
+type="date"
+id="inlineDate"
+>
+
+</div>
+
+
+<div class="task-input-action">
+
+<button
+type="button"
+id="saveInlineTask"
+class="save-task-button"
+title="Guardar tarea"
+>
+
+<i class="fa-solid fa-arrow-right"></i>
+
+</button>
+
+</div>
+
+</div>
+
+
+<!-- =========================================================
+     AYUDA
+     ========================================================= -->
+
+<div class="task-hint">
+
+<i class="fa-regular fa-lightbulb"></i>
+
+<span>
+También puedes hacer clic en cualquier campo de una tarea para editarla directamente.
+</span>
+
+</div>
+
+
+</div>
+
+</section>
+
+
+
+<!-- =========================================================
+     DASHBOARD
+     ========================================================= -->
+
+<section class="view" id="view-dashboard">
+
+<div class="page-header">
+
+<div>
+
+<span class="eyebrow">
+RESUMEN
+</span>
+
+<h1>
+Avance
+</h1>
+
+<p>
+Una vista rápida del estado general de tu trabajo.
+</p>
+
+</div>
+
+</div>
+
+
+<div class="dashboard-cards">
+
+
+<div class="dashboard-stat">
+
+<span class="dashboard-stat-label">
+Tareas totales
+</span>
+
+<strong id="dashboardTotal">
+0
+</strong>
+
+<small>
+<i class="fa-solid fa-list-check"></i>
+Registradas
+</small>
+
+</div>
+
+
+<div class="dashboard-stat">
+
+<span class="dashboard-stat-label">
+Pendientes
+</span>
+
+<strong id="dashboardPending">
+0
+</strong>
+
+<small>
+<i class="fa-regular fa-clock"></i>
+Por completar
+</small>
+
+</div>
+
+
+<div class="dashboard-stat">
+
+<span class="dashboard-stat-label">
+Completadas
+</span>
+
+<strong id="dashboardCompleted">
+0
+</strong>
+
+<small>
+<i class="fa-solid fa-circle-check"></i>
+Finalizadas
+</small>
+
+</div>
+
+
+<div class="dashboard-stat">
+
+<span class="dashboard-stat-label">
+Avance general
+</span>
+
+<strong id="dashboardProgress">
+0%
+</strong>
+
+<small>
+<i class="fa-solid fa-chart-line"></i>
+Progreso
+</small>
+
+</div>
+
+</div>
+
+
+<div class="dashboard-grid">
+
+
+<div class="dashboard-panel">
+
+<div class="panel-header">
+
+<div>
+
+<span>
+AVANCE GENERAL
+</span>
+
+<h2>
+Progreso de tareas
+</h2>
+
+</div>
+
+</div>
+
+
+<div class="progress-dashboard">
+
+<div
+class="large-progress-circle"
+id="dashboardCircle"
+>
+
+<div>
+
+<strong id="dashboardCircleValue">
+0%
+</strong>
+
+<span>
+completado
+</span>
+
+</div>
+
+</div>
+
+
+<div class="progress-breakdown">
+
+
+<div class="breakdown-item">
+
+<div>
+
+<span class="breakdown-dot pending"></span>
+
+<span>
+Pendientes
+</span>
+
+</div>
+
+<strong id="breakdownPending">
+0
+</strong>
+
+</div>
+
+
+<div class="breakdown-item">
+
+<div>
+
+<span class="breakdown-dot completed"></span>
+
+<span>
+Completadas
+</span>
+
+</div>
+
+<strong id="breakdownCompleted">
+0
+</strong>
+
+</div>
+
+
+</div>
+
+</div>
+
+</div>
+
+
+
+<div class="dashboard-panel">
+
+<div class="panel-header">
+
+<div>
+
+<span>
+PRIORIDADES
+</span>
+
+<h2>
+Distribución
+</h2>
+
+</div>
+
+</div>
+
+
+<div class="priority-dashboard">
+
+
+<div class="priority-row">
+
+<div class="priority-label">
+
+<span class="priority-dot high"></span>
+
+<span>
+Alta
+</span>
+
+</div>
+
+<strong id="priorityHighCount">
+0
+</strong>
+
+</div>
+
+
+<div class="priority-progress">
+<div id="priorityHighBar"></div>
+</div>
+
+
+<div class="priority-row">
+
+<div class="priority-label">
+
+<span class="priority-dot medium"></span>
+
+<span>
+Media
+</span>
+
+</div>
+
+<strong id="priorityMediumCount">
+0
+</strong>
+
+</div>
+
+
+<div class="priority-progress">
+<div id="priorityMediumBar"></div>
+</div>
+
+
+<div class="priority-row">
+
+<div class="priority-label">
+
+<span class="priority-dot low"></span>
+
+<span>
+Baja
+</span>
+
+</div>
+
+<strong id="priorityLowCount">
+0
+</strong>
+
+</div>
+
+
+<div class="priority-progress">
+<div id="priorityLowBar"></div>
+</div>
+
+
+</div>
+
+</div>
+
+</div>
+
+</section>
+
+
+
+<!-- =========================================================
+     COLABORADORES
+     ========================================================= -->
+
+<section class="view" id="view-colaboradores">
+
+<div class="page-header">
+
+<div>
+
+<span class="eyebrow">
+EQUIPO
+</span>
+
+<h1>
+Colaboradores
+</h1>
+
+<p>
+Personas que participan en tus proyectos y tareas.
+</p>
+
+</div>
+
+
+<div class="header-actions">
+
+<button
+class="primary-button"
+id="newCollaboratorButton"
+>
+
+<i class="fa-solid fa-plus"></i>
+
+<span>
+Nuevo colaborador
+</span>
+
+</button>
+
+</div>
+
+</div>
+
+
+<div class="section-toolbar">
+
+<div class="section-title">
+
+<h2>
+Equipo
+</h2>
+
+<span id="collaboratorCount">
+0 colaboradores
+</span>
+
+</div>
+
+
+<div class="quick-search">
+
+<i class="fa-solid fa-magnifying-glass"></i>
+
+<input
+type="text"
+id="collaboratorSearch"
+placeholder="Buscar colaborador..."
+>
+
+</div>
+
+</div>
+
+
+<div
+class="collaborators-grid"
+id="collaboratorsGrid"
+>
+</div>
+
+
+<div
+class="empty-section"
+id="emptyCollaborators"
+>
+
+<div class="empty-section-icon">
+
+<i class="fa-solid fa-users"></i>
+
+</div>
+
+<h3>
+No hay colaboradores
+</h3>
+
+<p>
+Agrega personas para poder asignarlas a tus tareas.
+</p>
+
+</div>
+
+</section>
+
+
+
+<!-- =========================================================
+     PROYECTOS
+     ========================================================= -->
+
+<section class="view" id="view-proyectos">
+
+<div class="page-header">
+
+<div>
+
+<span class="eyebrow">
+ORGANIZACIÓN
+</span>
+
+<h1>
+Proyectos
+</h1>
+
+<p>
+Administra los proyectos a los que pertenecen tus tareas.
+</p>
+
+</div>
+
+
+<div class="header-actions">
+
+<button
+class="primary-button"
+id="newProjectButton"
+>
+
+<i class="fa-solid fa-plus"></i>
+
+<span>
+Nuevo proyecto
+</span>
+
+</button>
+
+</div>
+
+</div>
+
+
+<div
+class="projects-grid"
+id="projectsGrid"
+>
+</div>
+
+
+<div
+class="empty-section"
+id="emptyProjects"
+>
+
+<div class="empty-section-icon">
+
+<i class="fa-solid fa-folder-open"></i>
+
+</div>
+
+<h3>
+No hay proyectos
+</h3>
+
+<p>
+Crea tu primer proyecto para comenzar a organizar tus tareas.
+</p>
+
+</div>
+
+</section>
+
+
+
+<!-- =========================================================
+     COMPLETADAS
+     ========================================================= -->
+
+<section class="view" id="view-completadas">
+
+<div class="page-header">
+
+<div>
+
+<span class="eyebrow">
+HISTORIAL
+</span>
+
+<h1>
+Completadas
+</h1>
+
+<p>
+Consulta las tareas que ya fueron finalizadas.
+</p>
+
+</div>
+
+</div>
+
+
+<div class="completed-header">
+
+
+<div class="completed-total">
+
+<div class="summary-icon green">
+
+<i class="fa-solid fa-check"></i>
+
+</div>
+
+
+<div>
+
+<span>
+Tareas completadas
+</span>
+
+<strong id="completedTotalPage">
+0
+</strong>
+
+</div>
+
+</div>
+
+
+<div class="completed-search">
+
+<i class="fa-solid fa-magnifying-glass"></i>
+
+<input
+type="text"
+id="completedSearch"
+placeholder="Buscar en completadas..."
+>
+
+</div>
+
+</div>
+
+
+<div class="completed-table-wrapper">
+
+<table class="task-table completed-table">
+
+<thead>
+
+<tr>
+
+<th>
+Tarea
+</th>
+
+<th>
+Prioridad
+</th>
+
+<th>
+Proyecto
+</th>
+
+<th>
+Integrantes
+</th>
+
+<th>
+Fecha
+</th>
+
+<th>
+Completada
+</th>
+
+<th>Restaurar</th>
+
+</tr>
+
+</thead>
+
+
+<tbody id="completedTableBody">
+</tbody>
+
+</table>
+
+</div>
+
+
+<div
+class="empty-section"
+id="emptyCompleted"
+>
+
+<div class="empty-section-icon">
+
+<i class="fa-solid fa-circle-check"></i>
+
+</div>
+
+<h3>
+No hay tareas completadas
+</h3>
+
+<p>
+Las tareas finalizadas aparecerán aquí.
+</p>
+
+</div>
+
+</section>
+
+
+</main>
+
+</div>
+
+
+
+<!-- =========================================================
+     MENÚ FLOTANTE
+     ========================================================= -->
+
+<div class="floating-menu">
+
+<button
+class="floating-menu-button"
+id="floatingMenuButton"
+title="Menú"
+>
+
+<i class="fa-solid fa-plus"></i>
+
+</button>
+
+
+<div
+class="floating-menu-options"
+id="floatingMenuOptions"
+>
+
+
+<button data-view="tareas">
+
+<i class="fa-solid fa-list-check"></i>
+
+<span>
+Mis tareas
+</span>
+
+</button>
+
+
+<button data-view="dashboard">
+
+<i class="fa-solid fa-chart-simple"></i>
+
+<span>
+Avance
+</span>
+
+</button>
+
+
+<button data-view="colaboradores">
+
+<i class="fa-solid fa-users"></i>
+
+<span>
+Colaboradores
+</span>
+
+</button>
+
+
+<button data-view="proyectos">
+
+<i class="fa-solid fa-folder"></i>
+
+<span>
+Proyectos
+</span>
+
+</button>
+
+
+<button data-view="completadas">
+
+<i class="fa-solid fa-circle-check"></i>
+
+<span>
+Completadas
+</span>
+
+</button>
+
+
+</div>
+
+</div>
+
+
+
+<!-- =========================================================
+     MODAL COLABORADOR
+     ========================================================= -->
+
+<div
+class="modal-overlay"
+id="collaboratorModal"
+>
+
+<div class="modal">
+
+
+<div class="modal-header">
+
+<div>
+
+<span class="modal-eyebrow">
+EQUIPO
+</span>
+
+<h2>
+Nuevo colaborador
+</h2>
+
+</div>
+
+
+<button
+class="modal-close"
+data-close="collaboratorModal"
+>
+
+<i class="fa-solid fa-xmark"></i>
+
+</button>
+
+</div>
+
+
+<form id="collaboratorForm">
+
+
+<div class="form-group">
+
+<label for="collaboratorName">
+Nombre
+</label>
+
+<input
+type="text"
+id="collaboratorName"
+placeholder="Nombre del colaborador"
+required
+>
+
+</div>
+
+
+<div class="form-group">
+
+<label for="collaboratorRole">
+Cargo
+</label>
+
+<input
+type="text"
+id="collaboratorRole"
+placeholder="Cargo o función"
+>
+
+</div>
+
+
+<div class="form-group">
+
+<label for="collaboratorEmail">
+Correo
+</label>
+
+<input
+type="email"
+id="collaboratorEmail"
+placeholder="correo@empresa.com"
+>
+
+</div>
+
+
+<div class="modal-footer">
+
+<button
+type="button"
+class="secondary-button"
+data-close="collaboratorModal"
+>
+Cancelar
+</button>
+
+
+<button
+type="submit"
+class="primary-button"
+>
+
+<i class="fa-solid fa-check"></i>
+
+<span>
+Guardar
+</span>
+
+</button>
+
+</div>
+
+
+</form>
+
+</div>
+
+</div>
+
+
+
+<!-- =========================================================
+     MODAL PROYECTO
+     ========================================================= -->
+
+<div
+class="modal-overlay"
+id="projectModal"
+>
+
+<div class="modal">
+
+
+<div class="modal-header">
+
+<div>
+
+<span class="modal-eyebrow">
+ORGANIZACIÓN
+</span>
+
+<h2>
+Nuevo proyecto
+</h2>
+
+</div>
+
+
+<button
+class="modal-close"
+data-close="projectModal"
+>
+
+<i class="fa-solid fa-xmark"></i>
+
+</button>
+
+</div>
+
+
+<form id="projectForm">
+
+
+<div class="form-group">
+
+<label for="projectName">
+Nombre del proyecto
+</label>
+
+<input
+type="text"
+id="projectName"
+placeholder="Ej. Sistema de inventario"
+required
+>
+
+</div>
+
+
+<div class="form-group">
+
+<label for="projectDescription">
+Descripción
+</label>
+
+<textarea
+id="projectDescription"
+placeholder="Describe brevemente el proyecto..."
+></textarea>
+
+</div>
+
+
+<div class="modal-footer">
+
+<button
+type="button"
+class="secondary-button"
+data-close="projectModal"
+>
+Cancelar
+</button>
+
+
+<button
+type="submit"
+class="primary-button"
+>
+
+<i class="fa-solid fa-check"></i>
+
+<span>
+Crear proyecto
+</span>
+
+</button>
+
+</div>
+
+
+</form>
+
+</div>
+
+</div>
+
+
+
+<!-- =========================================================
+     MODAL INTEGRANTES
+     ========================================================= -->
+
+<div
+class="modal-overlay"
+id="membersModal"
+>
+
+<div class="modal">
+
+
+<div class="modal-header">
+
+<div>
+
+<span class="modal-eyebrow">
+ASIGNACIÓN
+</span>
+
+<h2>
+Integrantes
+</h2>
+
+</div>
+
+
+<button
+class="modal-close"
+data-close="membersModal"
+>
+
+<i class="fa-solid fa-xmark"></i>
+
+</button>
+
+</div>
+
+
+<div
+class="members-selector"
+id="membersSelector"
+>
+</div>
+
+
+<div class="modal-footer">
+
+<button
+type="button"
+class="secondary-button"
+data-close="membersModal"
+>
+Cancelar
+</button>
+
+
+<button
+type="button"
+class="primary-button"
+id="saveMembersButton"
+>
+
+<i class="fa-solid fa-check"></i>
+
+<span>
+Aplicar
+</span>
+
+</button>
+
+</div>
+
+
+</div>
+
+</div>
+
+
+
+<!-- =========================================================
+     MODAL EDITAR TAREA
+     ========================================================= -->
+
+<div
+class="modal-overlay"
+id="taskEditModal"
+>
+
+<div class="modal task-edit-modal">
+
+
+<div class="modal-header">
+
+<div>
+
+<span class="modal-eyebrow">
+TAREA
+</span>
+
+<h2>
+Editar tarea
+</h2>
+
+</div>
+
+
+<button
+class="modal-close"
+data-close="taskEditModal"
+>
+
+<i class="fa-solid fa-xmark"></i>
+
+</button>
+
+</div>
+
+
+<form id="taskEditForm">
+
+<input
+type="hidden"
+id="editTaskId"
+>
+
+
+<div class="form-group">
+
+<label for="editTaskTitle">
+Tarea
+</label>
+
+<input
+type="text"
+id="editTaskTitle"
+required
+>
+
+</div>
+
+
+<div class="form-row">
+
+
+<div class="form-group">
+
+<label for="editTaskPriority">
+Prioridad
+</label>
+
+<select id="editTaskPriority">
+
+<option value="alta">
+Alta
+</option>
+
+<option value="media">
+Media
+</option>
+
+<option value="baja">
+Baja
+</option>
+
+</select>
+
+</div>
+
+
+<div class="form-group">
+
+<label for="editTaskProject">
+Proyecto
+</label>
+
+<select id="editTaskProject">
+
+<option value="">
+Sin proyecto
+</option>
+
+</select>
+
+</div>
+
+
+</div>
+
+
+<div class="form-group">
+
+<label for="editTaskDate">
+Fecha
+</label>
+
+<input
+type="date"
+id="editTaskDate"
+>
+
+</div>
+
+
+<div class="modal-footer">
+
+<button
+type="button"
+class="secondary-button"
+data-close="taskEditModal"
+>
+Cancelar
+</button>
+
+
+<button
+type="submit"
+class="primary-button"
+>
+
+<i class="fa-solid fa-check"></i>
+
+<span>
+Guardar cambios
+</span>
+
+</button>
+
+</div>
+
+
+</form>
+
+</div>
+
+</div>
+
+
+
+<!-- =========================================================
+     BÚSQUEDA GLOBAL
+     ========================================================= -->
+
+<div
+class="search-overlay"
+id="searchOverlay"
+>
+
+<div class="global-search">
+
+
+<div class="search-input-wrapper">
+
+<i class="fa-solid fa-magnifying-glass"></i>
+
+<input
+type="text"
+id="globalSearchInput"
+placeholder="Buscar tareas, proyectos o colaboradores..."
+>
+
+<button
+type="button"
+id="closeSearch"
+>
+ESC
+</button>
+
+</div>
+
+
+<div
+class="search-results"
+id="globalSearchResults"
+>
+
+<div class="search-empty">
+
+<i class="fa-solid fa-magnifying-glass"></i>
+
+<span>
+Escribe para comenzar la búsqueda
+</span>
+
+</div>
+
+</div>
+
+
+</div>
+
+</div>
+
+
+
+<!-- =========================================================
+     TOAST
+     ========================================================= -->
+
+<div
+class="toast-container"
+id="toastContainer"
+>
+</div>
+
+
+<script src="js/script.js"></script>
+
+</body>
+</html>
