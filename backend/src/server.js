@@ -1,12 +1,14 @@
 require('dotenv').config();
 
 const express = require('express');
+const cors = require('cors');
 const pool = require('./config/db');
 const projectsRoutes = require('./routes/projects.routes');
 const tasksRoutes = require('./routes/tasks.routes');
 const collaboratorsRoutes = require('./routes/collaborators.routes');
 
 const app = express();
+app.use(cors());
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
