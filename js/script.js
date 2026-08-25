@@ -4,8 +4,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     let collaborators = [];
     let projects = [];
 
-    const FILTER_STORAGE_KEY = "taskflow_task_filter";
-
     /* =========================================================
        CONFIGURACIÓN DE ICONOS DE PROYECTOS
        ========================================================= */
@@ -53,19 +51,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         let value = String(icon).trim();
-
-        /*
-         * Permite que se guarde tanto:
-         *
-         * fa-folder
-         *
-         * como:
-         *
-         * fa-solid fa-folder
-         *
-         * y siempre devuelve solamente
-         * la clase del icono.
-         */
 
         value = value
             .replace(/\bfa-solid\b/g, "")
@@ -288,79 +273,73 @@ document.addEventListener("DOMContentLoaded", async () => {
         return task;
     }
 
-    tasks =
-        tasks.map(
-            normalizeTask
-        );
-
     /*
-     * Normalizamos proyectos antiguos.
-     *
-     * Los proyectos existentes que fueron
-     * creados antes de implementar iconos
-     * reciben automáticamente fa-folder.
+     * Los datos principales NO se almacenan en localStorage.
+     * PostgreSQL / Neon es la fuente oficial.
      */
 
-    projects =
-        projects.map(project => ({
-            ...project,
-            icon:
-                getProjectIcon(project)
-        }));
-
     function saveData() {
-    // Los datos principales ya no se guardan en localStorage.
-    // PostgreSQL / Neon será la fuente oficial de información.
+        // Se conserva temporalmente porque algunas
+        // funciones antiguas pueden llamarla.
+        // No almacena absolutamente nada.
     }
+
     async function loadDataFromAPI() {
+        try {
+            const [
+                apiTasks,
+                apiProjects,
+                apiCollaborators
+            ] = await Promise.all([
+                TaskFlowAPI.getTasks(),
+                TaskFlowAPI.getProjects(),
+                TaskFlowAPI.getCollaborators()
+            ]);
 
-    try {
+            tasks =
+                apiTasks.map(
+                    normalizeTask
+                );
 
-        const [
-            apiTasks,
-            apiProjects,
-            apiCollaborators
-        ] = await Promise.all([
-            TaskFlowAPI.getTasks(),
-            TaskFlowAPI.getProjects(),
-            TaskFlowAPI.getCollaborators()
-        ]);
+            projects =
+                apiProjects.map(
+                    project => ({
+                        ...project,
+                        icon:
+                            getProjectIcon(
+                                project
+                            )
+                    })
+                );
 
-        tasks = apiTasks.map(normalizeTask);
+            collaborators =
+                apiCollaborators;
 
-        projects = apiProjects.map(project => ({
-            ...project,
-            icon: getProjectIcon(project)
-        }));
+            console.log(
+                "Datos cargados desde PostgreSQL:",
+                {
+                    tasks,
+                    projects,
+                    collaborators
+                }
+            );
 
-        collaborators = apiCollaborators;
+            return true;
 
-        console.log(
-            "Datos cargados desde PostgreSQL:",
-            {
-                tasks,
-                projects,
-                collaborators
-            }
-        );
+        } catch (error) {
+            console.error(
+                "Error cargando datos desde PostgreSQL:",
+                error
+            );
 
-        return true;
+            showToast(
+                "No se pudo conectar con el servidor.",
+                "error"
+            );
 
-    } catch (error) {
-
-        console.error(
-            "Error cargando datos desde PostgreSQL:",
-            error
-        );
-
-        showToast(
-            "No se pudo conectar con el servidor.",
-            "error"
-        );
-
-        return false;
+            return false;
+        }
     }
-}
 
     let currentMembersTaskId =
         null;
@@ -374,10 +353,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     let selectedMembers =
         [];
 
+    /*
+     * El filtro comienza siempre en newest.
+     * Ya NO utilizamos localStorage.
+     */
     let currentTaskFilter =
-        localStorage.getItem(
-            FILTER_STORAGE_KEY
-        ) || "newest";
+        "newest";
 
     const menuItems =
         document.querySelectorAll(
@@ -514,9 +495,19 @@ document.addEventListener("DOMContentLoaded", async () => {
             "emptyProjects"
         );
 
-    const completedTableBody =
+    const projectCount =
         document.getElementById(
-            "completedTableBody"
+            "projectCount"
+        );
+
+    const projectSearch =
+        document.getElementById(
+            "projectSearch"
+        );
+
+    const completedList =
+        document.getElementById(
+            "completedList"
         );
 
     const emptyCompleted =
@@ -524,24 +515,19 @@ document.addEventListener("DOMContentLoaded", async () => {
             "emptyCompleted"
         );
 
-    const completedTotalPage =
-        document.getElementById(
-            "completedTotalPage"
-        );
-
     const completedSearch =
         document.getElementById(
             "completedSearch"
         );
 
-    const collaboratorModal =
+    const completedProjectFilter =
         document.getElementById(
-            "collaboratorModal"
+            "completedProjectFilter"
         );
 
-    const projectModal =
+    const completedCount =
         document.getElementById(
-            "projectModal"
+            "completedCount"
         );
 
     const membersModal =
@@ -549,43 +535,85 @@ document.addEventListener("DOMContentLoaded", async () => {
             "membersModal"
         );
 
+    const membersTaskTitle =
+        document.getElementById(
+            "membersTaskTitle"
+        );
+
+    const membersSearch =
+        document.getElementById(
+            "membersSearch"
+        );
+
+    const membersList =
+        document.getElementById(
+            "membersList"
+        );
+
+    const saveMembers =
+        document.getElementById(
+            "saveMembers"
+        );
+
     const taskEditModal =
         document.getElementById(
             "taskEditModal"
         );
 
-    const newCollaboratorButton =
+    const taskEditForm =
         document.getElementById(
-            "newCollaboratorButton"
+            "taskEditForm"
         );
 
-    const newProjectButton =
+    const taskEditTitle =
         document.getElementById(
-            "newProjectButton"
+            "taskEditTitle"
         );
 
-    const inlineMembersButton =
+    const taskEditSecondary =
         document.getElementById(
-            "inlineMembersButton"
+            "taskEditSecondary"
         );
 
-    const saveMembersButton =
+    const taskEditPriority =
         document.getElementById(
-            "saveMembersButton"
+            "taskEditPriority"
         );
 
-    const newTaskButton =
+    const taskEditProject =
         document.getElementById(
-            "newTaskButton"
+            "taskEditProject"
         );
 
-    /*
-     * Elementos opcionales para el selector
-     * de iconos del proyecto.
-     *
-     * Si todavía no existen en el HTML,
-     * el sistema continúa funcionando.
-     */
+    const taskEditDate =
+        document.getElementById(
+            "taskEditDate"
+        );
+
+    const projectEditModal =
+        document.getElementById(
+            "projectEditModal"
+        );
+
+    const projectEditForm =
+        document.getElementById(
+            "projectEditForm"
+        );
+
+    const projectEditName =
+        document.getElementById(
+            "projectEditName"
+        );
+
+    const projectEditDescription =
+        document.getElementById(
+            "projectEditDescription"
+        );
+
+    const projectEditIcon =
+        document.getElementById(
+            "projectEditIcon"
+        );
 
     const projectIconInput =
         document.getElementById(
@@ -602,79 +630,106 @@ document.addEventListener("DOMContentLoaded", async () => {
             "projectIconSelector"
         );
 
-    function escapeHTML(value) {
-        if (
-            value === null ||
-            value === undefined
-        ) {
-            return "";
-        }
+    const globalSearch =
+        document.getElementById(
+            "globalSearch"
+        );
 
-        return String(value)
-            .replace(
-                /&/g,
-                "&amp;"
-            )
-            .replace(
-                /</g,
-                "&lt;"
-            )
-            .replace(
-                />/g,
-                "&gt;"
-            )
-            .replace(
-                /"/g,
-                "&quot;"
-            )
-            .replace(
-                /'/g,
-                "&#039;"
-            );
+    const globalSearchInput =
+        document.getElementById(
+            "globalSearchInput"
+        );
+
+    const globalSearchResults =
+        document.getElementById(
+            "globalSearchResults"
+        );
+
+    const searchOverlay =
+        document.getElementById(
+            "searchOverlay"
+        );
+
+    const newTaskButton =
+        document.getElementById(
+            "newTaskButton"
+        );
+
+    const newProjectButton =
+        document.getElementById(
+            "newProjectButton"
+        );
+
+    const newCollaboratorButton =
+        document.getElementById(
+            "newCollaboratorButton"
+        );
+
+    /* =========================================================
+       FUNCIONES GENERALES
+       ========================================================= */
+
+    function escapeHTML(value) {
+        return String(value ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
     }
 
-    function formatDate(date) {
-        if (!date) return "—";
+    function getInitials(name) {
+        return String(name || "")
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean)
+            .slice(0, 2)
+            .map(part =>
+                part.charAt(0)
+                    .toUpperCase()
+            )
+            .join("");
+    }
 
-        const value =
-            String(date);
-
-        if (value.includes("T")) {
-            return formatDate(
-                value.substring(
-                    0,
-                    10
-                )
-            );
+    function formatDate(value) {
+        if (!value) {
+            return "Sin fecha";
         }
 
+        const date =
+            String(value);
+
+        if (date.includes("/")) {
+            return date;
+        }
+
+        const cleanDate =
+            date.split("T")[0];
+
         const parts =
-            value.split("-");
+            cleanDate.split("-");
 
         if (parts.length === 3) {
             return `${parts[2]}/${parts[1]}/${parts[0]}`;
         }
 
-        const slashParts =
-            value.split("/");
-
-        if (slashParts.length === 3) {
-            return `${slashParts[0].padStart(2, "0")}/${slashParts[1]}/${slashParts[2]}`;
-        }
-
-        return value;
+        return date;
     }
 
-    function getProjectName(projectId) {
-        if (!projectId) {
+    function getProject(id) {
+        return projects.find(
+            project =>
+                project.id === id
+        );
+    }
+
+    function getProjectName(id) {
+        if (!id) {
             return "Sin proyecto";
         }
 
         const project =
-            projects.find(
-                p =>
-                    p.id === projectId
-            );
+            getProject(id);
 
         return project
             ? project.name
@@ -683,45 +738,36 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     function getCollaborator(id) {
         return collaborators.find(
-            c =>
-                c.id === id
+            collaborator =>
+                collaborator.id === id
         );
-    }
-
-    function getInitials(name) {
-        if (!name) return "?";
-
-        const words =
-            name.trim()
-                .split(/\s+/);
-
-        if (words.length === 1) {
-            return words[0]
-                .substring(
-                    0,
-                    2
-                )
-                .toUpperCase();
-        }
-
-        return (
-            words[0][0] +
-            words[
-                words.length - 1
-            ][0]
-        ).toUpperCase();
     }
 
     function showToast(
         message,
         type = "success"
     ) {
-        const container =
+        let container =
             document.getElementById(
                 "toastContainer"
             );
 
-        if (!container) return;
+        if (!container) {
+            container =
+                document.createElement(
+                    "div"
+                );
+
+            container.id =
+                "toastContainer";
+
+            container.className =
+                "toast-container";
+
+            document.body.appendChild(
+                container
+            );
+        }
 
         const toast =
             document.createElement(
@@ -729,23 +775,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             );
 
         toast.className =
-            `toast toast-${type}`;
-
-        let icon =
-            "fa-check";
-
-        if (type === "error") {
-            icon =
-                "fa-circle-exclamation";
-        }
-
-        if (type === "warning") {
-            icon =
-                "fa-triangle-exclamation";
-        }
+            `toast ${type}`;
 
         toast.innerHTML = `
-            <i class="fa-solid ${icon}"></i>
             <span>${escapeHTML(message)}</span>
         `;
 
@@ -753,12 +785,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             toast
         );
 
-        setTimeout(
-            () =>
+        requestAnimationFrame(
+            () => {
                 toast.classList.add(
                     "show"
-                ),
-            10
+                );
+            }
         );
 
         setTimeout(
@@ -768,115 +800,145 @@ document.addEventListener("DOMContentLoaded", async () => {
                 );
 
                 setTimeout(
-                    () =>
-                        toast.remove(),
-                    300
+                    () => {
+                        toast.remove();
+                    },
+                    250
                 );
             },
             3000
         );
     }
 
-    function actualizarTareasFinalizadas() {
-        let cambios = false;
-
-        tasks.forEach(task => {
-            const antes =
-                task.completed;
-
-            normalizeTask(task);
-
-            if (
-                antes !==
-                task.completed
-            ) {
-                cambios = true;
-            }
-        });
-
-        if (cambios) {
-            saveData();
+    function closeModal(modal) {
+        if (!modal) {
+            return;
         }
+
+        modal.classList.remove(
+            "active"
+        );
     }
 
-    actualizarTareasFinalizadas();
+    function openModal(modal) {
+        if (!modal) {
+            return;
+        }
+
+        modal.classList.add(
+            "active"
+        );
+    }
+
+    document
+        .querySelectorAll(
+            "[data-close-modal]"
+        )
+        .forEach(button => {
+            button.addEventListener(
+                "click",
+                () => {
+                    const modal =
+                        button.closest(
+                            ".modal-overlay"
+                        );
+
+                    closeModal(
+                        modal
+                    );
+                }
+            );
+        });
+
+    document
+        .querySelectorAll(
+            ".modal-overlay"
+        )
+        .forEach(modal => {
+            modal.addEventListener(
+                "click",
+                event => {
+                    if (
+                        event.target ===
+                        modal
+                    ) {
+                        closeModal(
+                            modal
+                        );
+                    }
+                }
+            );
+        });
 
     /* =========================================================
-       SELECTOR DE ICONOS
+       ICONOS DE PROYECTOS
        ========================================================= */
 
     function renderProjectIconSelector(
-        selectedIcon = DEFAULT_PROJECT_ICON
+        selectedIcon =
+            DEFAULT_PROJECT_ICON
     ) {
-        const selector =
-            document.getElementById(
-                "projectIconSelector"
-            );
-
-        if (!selector) return;
+        if (!projectIconSelector) {
+            return;
+        }
 
         selectedIcon =
             normalizeProjectIcon(
                 selectedIcon
             );
 
-        selector.innerHTML = "";
+        projectIconSelector.innerHTML =
+            "";
 
-        PROJECT_ICONS.forEach(
-            icon => {
-                const button =
-                    document.createElement(
-                        "button"
-                    );
-
-                button.type =
-                    "button";
-
-                button.className =
-                    "project-icon-option";
-
-                button.dataset.icon =
-                    icon;
-
-                if (
-                    icon ===
-                    selectedIcon
-                ) {
-                    button.classList.add(
-                        "active"
-                    );
-                }
-
-                button.innerHTML = `
-                    <i class="fa-solid ${escapeHTML(icon)}"></i>
-                `;
-
-                button.addEventListener(
-                    "click",
-                    event => {
-                        event.preventDefault();
-                        event.stopPropagation();
-
-                        setSelectedProjectIcon(
-                            icon
-                        );
-                    }
+        PROJECT_ICONS.forEach(icon => {
+            const button =
+                document.createElement(
+                    "button"
                 );
 
-                selector.appendChild(
-                    button
+            button.type =
+                "button";
+
+            button.className =
+                "project-icon-option";
+
+            button.dataset.icon =
+                icon;
+
+            button.innerHTML = `
+                <i class="fa-solid ${escapeHTML(icon)}"></i>
+            `;
+
+            if (
+                icon ===
+                selectedIcon
+            ) {
+                button.classList.add(
+                    "active"
                 );
             }
-        );
+
+            button.addEventListener(
+                "click",
+                () => {
+                    selectProjectIcon(
+                        icon
+                    );
+                }
+            );
+
+            projectIconSelector
+                .appendChild(
+                    button
+                );
+        });
 
         updateProjectIconPreview(
             selectedIcon
         );
     }
 
-    function setSelectedProjectIcon(
-        icon
-    ) {
+    function selectProjectIcon(icon) {
         icon =
             normalizeProjectIcon(
                 icon
@@ -1855,7 +1917,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 data-filter="registration"
             >
                 <span>
-                    Mostrar en orden de registro
+                    Mostrar por fecha de registro
                 </span>
 
                 <button
@@ -1919,10 +1981,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                         currentTaskFilter =
                             option.dataset.filter;
 
-                        localStorage.setItem(
-                            FILTER_STORAGE_KEY,
-                            currentTaskFilter
-                        );
+                        /*
+                         * Ya NO guardamos el filtro
+                         * en localStorage.
+                         */
 
                         updateFilterSwitches();
                         renderTasks();
@@ -1971,402 +2033,1075 @@ document.addEventListener("DOMContentLoaded", async () => {
             });
     }
 
-    function setupFilterStyles() {
-        if (
-            document.getElementById(
-                "taskFilterStyles"
-            )
-        ) {
+    createFiltersPanel();
+
+        /* =========================================================
+       EDITAR TAREA
+       ========================================================= */
+
+    function openTaskEdit(id) {
+        const task =
+            tasks.find(
+                t => t.id === id
+            );
+
+        if (!task) {
             return;
         }
 
-        const style =
-            document.createElement(
-                "style"
-            );
+        currentEditingTaskId =
+            id;
 
-        style.id =
-            "taskFilterStyles";
+        if (taskEditTitle) {
+            taskEditTitle.value =
+                task.title ||
+                task["TAREA PRINCIPAL"] ||
+                "";
+        }
 
-        style.textContent = `
-            #taskFiltersPanel{
-                position:absolute;
-                top:calc(100% + 10px);
-                right:0;
-                width:340px;
-                background:#fff;
-                border:1px solid #e5e7eb;
-                border-radius:14px;
-                padding:8px;
-                box-shadow:0 12px 35px rgba(0,0,0,.12);
-                z-index:9999;
-            }
+        if (taskEditSecondary) {
+            taskEditSecondary.value =
+                task.secondaryTask ||
+                task.secondary_task ||
+                task["TAREA SECUNDARIA"] ||
+                "";
+        }
 
-            .task-filters-header{
-                padding:10px 12px 12px;
-                border-bottom:1px solid #f0f0f0;
-                margin-bottom:4px;
-                font-size:14px;
-            }
+        if (taskEditPriority) {
+            taskEditPriority.value =
+                task.priority ||
+                "media";
+        }
 
-            .task-filter-option{
-                display:flex;
-                align-items:center;
-                justify-content:space-between;
-                gap:15px;
-                padding:12px;
-                border-radius:10px;
-                cursor:pointer;
-                font-size:13px;
-                color:#374151;
-            }
+        if (taskEditProject) {
+            taskEditProject.value =
+                task.projectId ||
+                "";
+        }
 
-            .task-filter-option:hover{
-                background:#f8fafc;
-            }
+        if (taskEditDate) {
+            taskEditDate.value =
+                task.date
+                    ? String(task.date)
+                        .split("T")[0]
+                    : "";
+        }
 
-            .task-filter-option.active{
-                background:#eff6ff;
-                color:#1d4ed8;
-            }
-
-            .filter-switch{
-                flex:none;
-                width:40px;
-                height:22px;
-                border:0;
-                border-radius:20px;
-                background:#d1d5db;
-                padding:3px;
-                cursor:pointer;
-                transition:.2s;
-            }
-
-            .filter-switch span{
-                display:block;
-                width:16px;
-                height:16px;
-                border-radius:50%;
-                background:#fff;
-                transition:.2s;
-                box-shadow:0 1px 3px rgba(0,0,0,.2);
-            }
-
-            .filter-switch.active{
-                background:#2563eb;
-            }
-
-            .filter-switch.active span{
-                transform:translateX(18px);
-            }
-
-            .restore-task{
-                color:#2563eb;
-            }
-
-            .restore-task:hover{
-                background:#eff6ff;
-            }
-        `;
-
-        document.head.appendChild(
-            style
+        openModal(
+            taskEditModal
         );
     }
 
-    const filterButton =
-        document.getElementById(
-            "filterButton"
-        );
+    if (taskEditForm) {
+        taskEditForm.addEventListener(
+            "submit",
+            async event => {
+                event.preventDefault();
 
-    if (filterButton) {
-        setupFilterStyles();
-        createFiltersPanel();
-
-        filterButton.addEventListener(
-            "click",
-            event => {
-                event.stopPropagation();
-
-                const panel =
-                    document.getElementById(
-                        "taskFiltersPanel"
+                const task =
+                    tasks.find(
+                        t =>
+                            t.id ===
+                            currentEditingTaskId
                     );
 
-                if (panel) {
-                    panel.style.display =
-                        panel.style.display ===
-                        "none"
-                            ? "block"
-                            : "none";
-                }
-            }
-        );
-
-        document.addEventListener(
-            "click",
-            event => {
-                const panel =
-                    document.getElementById(
-                        "taskFiltersPanel"
-                    );
-
-                if (!panel) {
+                if (!task) {
                     return;
                 }
 
-                if (
-                    !event.target.closest(
-                        "#taskFiltersPanel"
-                    ) &&
-                    !event.target.closest(
-                        "#filterButton"
-                    )
-                ) {
-                    panel.style.display =
-                        "none";
+                const title =
+                    taskEditTitle
+                        ?.value
+                        .trim() ||
+                    "";
+
+                if (!title) {
+                    showToast(
+                        "El nombre de la tarea es obligatorio.",
+                        "warning"
+                    );
+
+                    return;
+                }
+
+                const changes = {
+                    title,
+                    secondaryTask:
+                        taskEditSecondary
+                            ?.value
+                            .trim() ||
+                        "",
+                    priority:
+                        taskEditPriority
+                            ?.value ||
+                        "media",
+                    projectId:
+                        taskEditProject
+                            ?.value ||
+                        "",
+                    date:
+                        taskEditDate
+                            ?.value ||
+                        ""
+                };
+
+                try {
+                    const updated =
+                        await TaskFlowAPI.updateTask(
+                            task.id,
+                            changes
+                        );
+
+                    const previousMembers =
+                        Array.isArray(
+                            task.members
+                        )
+                            ? [...task.members]
+                            : [];
+
+                    Object.assign(
+                        task,
+                        normalizeTask(
+                            updated
+                        )
+                    );
+
+                    task.members =
+                        previousMembers;
+
+                    closeModal(
+                        taskEditModal
+                    );
+
+                    currentEditingTaskId =
+                        null;
+
+                    updateAll();
+
+                    showToast(
+                        "Tarea actualizada correctamente."
+                    );
+
+                } catch (error) {
+                    console.error(
+                        "Error actualizando tarea:",
+                        error
+                    );
+
+                    showToast(
+                        error.message ||
+                        "No se pudo actualizar la tarea.",
+                        "error"
+                    );
                 }
             }
         );
     }
 
     /* =========================================================
-       SELECTORES DE PROYECTOS
+       ASIGNAR COLABORADORES A TAREAS
+       ========================================================= */
+
+    function openMembersModal(id) {
+        const task =
+            tasks.find(
+                t => t.id === id
+            );
+
+        if (!task) {
+            return;
+        }
+
+        currentMembersTaskId =
+            id;
+
+        selectedMembers =
+            Array.isArray(
+                task.members
+            )
+                ? [...task.members]
+                : [];
+
+        if (membersTaskTitle) {
+            membersTaskTitle.textContent =
+                task.title ||
+                task["TAREA PRINCIPAL"] ||
+                "Tarea";
+        }
+
+        if (membersSearch) {
+            membersSearch.value =
+                "";
+        }
+
+        renderMembersModal();
+
+        openModal(
+            membersModal
+        );
+    }
+
+    function renderMembersModal() {
+        if (!membersList) {
+            return;
+        }
+
+        const query =
+            String(
+                membersSearch?.value ||
+                ""
+            )
+                .toLowerCase()
+                .trim();
+
+        const filtered =
+            collaborators.filter(
+                collaborator => {
+                    const name =
+                        String(
+                            collaborator.name ||
+                            ""
+                        ).toLowerCase();
+
+                    const role =
+                        String(
+                            collaborator.role ||
+                            ""
+                        ).toLowerCase();
+
+                    const email =
+                        String(
+                            collaborator.email ||
+                            ""
+                        ).toLowerCase();
+
+                    return (
+                        !query ||
+                        name.includes(
+                            query
+                        ) ||
+                        role.includes(
+                            query
+                        ) ||
+                        email.includes(
+                            query
+                        )
+                    );
+                }
+            );
+
+        membersList.innerHTML =
+            "";
+
+        if (!filtered.length) {
+            membersList.innerHTML = `
+                <div class="members-empty">
+                    No se encontraron colaboradores.
+                </div>
+            `;
+
+            return;
+        }
+
+        filtered.forEach(
+            collaborator => {
+                const selected =
+                    selectedMembers.includes(
+                        collaborator.id
+                    );
+
+                const item =
+                    document.createElement(
+                        "label"
+                    );
+
+                item.className =
+                    "member-select-item";
+
+                if (selected) {
+                    item.classList.add(
+                        "selected"
+                    );
+                }
+
+                item.innerHTML = `
+                    <input
+                        type="checkbox"
+                        value="${escapeHTML(collaborator.id)}"
+                        ${
+                            selected
+                                ? "checked"
+                                : ""
+                        }
+                    >
+
+                    <span class="member-avatar">
+                        ${escapeHTML(
+                            getInitials(
+                                collaborator.name
+                            )
+                        )}
+                    </span>
+
+                    <span class="member-select-info">
+                        <strong>
+                            ${escapeHTML(
+                                collaborator.name
+                            )}
+                        </strong>
+
+                        <small>
+                            ${escapeHTML(
+                                collaborator.role ||
+                                "Sin cargo"
+                            )}
+                        </small>
+                    </span>
+                `;
+
+                const checkbox =
+                    item.querySelector(
+                        'input[type="checkbox"]'
+                    );
+
+                checkbox?.addEventListener(
+                    "change",
+                    () => {
+                        if (
+                            checkbox.checked
+                        ) {
+                            if (
+                                !selectedMembers.includes(
+                                    collaborator.id
+                                )
+                            ) {
+                                selectedMembers.push(
+                                    collaborator.id
+                                );
+                            }
+                        } else {
+                            selectedMembers =
+                                selectedMembers.filter(
+                                    memberId =>
+                                        memberId !==
+                                        collaborator.id
+                                );
+                        }
+
+                        item.classList.toggle(
+                            "selected",
+                            checkbox.checked
+                        );
+                    }
+                );
+
+                membersList.appendChild(
+                    item
+                );
+            }
+        );
+    }
+
+    if (membersSearch) {
+        membersSearch.addEventListener(
+            "input",
+            renderMembersModal
+        );
+    }
+
+    if (saveMembers) {
+        saveMembers.addEventListener(
+            "click",
+            async () => {
+                const task =
+                    tasks.find(
+                        t =>
+                            t.id ===
+                            currentMembersTaskId
+                    );
+
+                if (!task) {
+                    return;
+                }
+
+                try {
+                    /*
+                     * Primero consultamos las asignaciones
+                     * actuales que conoce el frontend.
+                     */
+                    const previousMembers =
+                        Array.isArray(
+                            task.members
+                        )
+                            ? [...task.members]
+                            : [];
+
+                    const membersToAdd =
+                        selectedMembers.filter(
+                            id =>
+                                !previousMembers.includes(
+                                    id
+                                )
+                        );
+
+                    const membersToRemove =
+                        previousMembers.filter(
+                            id =>
+                                !selectedMembers.includes(
+                                    id
+                                )
+                        );
+
+                    /*
+                     * Guardamos cada nueva asignación
+                     * mediante la API.
+                     */
+                    for (
+                        const collaboratorId
+                        of membersToAdd
+                    ) {
+                        await TaskFlowAPI
+                            .assignCollaborator(
+                                task.id,
+                                collaboratorId
+                            );
+                    }
+
+                    /*
+                     * Eliminamos las asignaciones
+                     * que el usuario quitó.
+                     */
+                    for (
+                        const collaboratorId
+                        of membersToRemove
+                    ) {
+                        await TaskFlowAPI
+                            .removeCollaborator(
+                                task.id,
+                                collaboratorId
+                            );
+                    }
+
+                    task.members =
+                        [...selectedMembers];
+
+                    closeModal(
+                        membersModal
+                    );
+
+                    currentMembersTaskId =
+                        null;
+
+                    updateAll();
+
+                    showToast(
+                        "Colaboradores actualizados."
+                    );
+
+                } catch (error) {
+                    console.error(
+                        "Error guardando colaboradores:",
+                        error
+                    );
+
+                    showToast(
+                        error.message ||
+                        "No se pudieron guardar los colaboradores.",
+                        "error"
+                    );
+                }
+            }
+        );
+    }
+
+    /* =========================================================
+       PROYECTOS - SELECTORES
        ========================================================= */
 
     function renderProjectSelects() {
         const selects = [
             inlineProject,
-            document.getElementById(
-                "editTaskProject"
-            ),
-            taskFilterProject
-        ];
+            taskFilterProject,
+            completedProjectFilter,
+            taskEditProject
+        ].filter(Boolean);
 
-        selects.forEach(select => {
-            if (!select) {
-                return;
-            }
+        selects.forEach(
+            select => {
+                const currentValue =
+                    select.value;
 
-            const current =
-                select.value;
+                const isFilter =
+                    select ===
+                        taskFilterProject ||
+                    select ===
+                        completedProjectFilter;
 
-            const isFilter =
-                select ===
-                taskFilterProject;
+                select.innerHTML =
+                    "";
 
-            select.innerHTML =
-                isFilter
-                    ? `<option value="all">Todos los proyectos</option>`
-                    : `<option value="">Sin proyecto</option>`;
+                const defaultOption =
+                    document.createElement(
+                        "option"
+                    );
 
-            projects.forEach(
-                project => {
-                    const option =
-                        document.createElement(
-                            "option"
+                defaultOption.value =
+                    isFilter
+                        ? "all"
+                        : "";
+
+                defaultOption.textContent =
+                    isFilter
+                        ? "Todos los proyectos"
+                        : "Sin proyecto";
+
+                select.appendChild(
+                    defaultOption
+                );
+
+                projects.forEach(
+                    project => {
+                        const option =
+                            document.createElement(
+                                "option"
+                            );
+
+                        option.value =
+                            project.id;
+
+                        option.textContent =
+                            project.name;
+
+                        select.appendChild(
+                            option
+                        );
+                    }
+                );
+
+                const exists =
+                    [...select.options]
+                        .some(
+                            option =>
+                                option.value ===
+                                currentValue
                         );
 
-                    option.value =
-                        project.id;
-
-                    option.textContent =
-                        project.name;
-
-                    select.appendChild(
-                        option
-                    );
+                if (exists) {
+                    select.value =
+                        currentValue;
                 }
-            );
-
-            if (
-                [
-                    ...select.options
-                ].some(
-                    option =>
-                        option.value ===
-                        current
-                )
-            ) {
-                select.value =
-                    current;
             }
-        });
+        );
     }
 
-
-           /* =========================================================
+    /* =========================================================
        RENDERIZAR PROYECTOS
        ========================================================= */
 
     function renderProjects() {
-        if (!projectsGrid) return;
-
-        projectsGrid.innerHTML = "";
-
-        if (!projects.length) {
-            if (emptyProjects) {
-                emptyProjects.style.display = "flex";
-            }
-
+        if (!projectsGrid) {
             return;
         }
 
+        const query =
+            String(
+                projectSearch?.value ||
+                ""
+            )
+                .toLowerCase()
+                .trim();
+
+        const filtered =
+            projects.filter(
+                project => {
+                    const name =
+                        String(
+                            project.name ||
+                            ""
+                        ).toLowerCase();
+
+                    const description =
+                        String(
+                            project.description ||
+                            ""
+                        ).toLowerCase();
+
+                    return (
+                        !query ||
+                        name.includes(
+                            query
+                        ) ||
+                        description.includes(
+                            query
+                        )
+                    );
+                }
+            );
+
+        projectsGrid.innerHTML =
+            "";
+
         if (emptyProjects) {
-            emptyProjects.style.display = "none";
+            emptyProjects.style.display =
+                filtered.length
+                    ? "none"
+                    : "flex";
         }
 
-        projects.forEach(project => {
+        if (projectCount) {
+            projectCount.textContent =
+                projects.length;
+        }
 
-            const projectTasks =
-                tasks.filter(
-                    task =>
-                        task.projectId === project.id
+        filtered.forEach(
+            project => {
+                const projectTasks =
+                    tasks.filter(
+                        task =>
+                            task.projectId ===
+                            project.id
+                    );
+
+                const total =
+                    projectTasks.length;
+
+                const completed =
+                    projectTasks.filter(
+                        task =>
+                            isTaskCompleted(
+                                task
+                            )
+                    ).length;
+
+                const progress =
+                    total
+                        ? Math.round(
+                            completed /
+                            total *
+                            100
+                        )
+                        : 0;
+
+                const card =
+                    document.createElement(
+                        "article"
+                    );
+
+                card.className =
+                    "project-card";
+
+                card.dataset.projectId =
+                    project.id;
+
+                const icon =
+                    getProjectIcon(
+                        project
+                    );
+
+                card.innerHTML = `
+                    <div class="project-card-header">
+
+                        <div class="project-card-icon">
+                            <i class="fa-solid ${escapeHTML(icon)}"></i>
+                        </div>
+
+                        <div class="project-card-actions">
+
+                            <button
+                                type="button"
+                                class="project-action"
+                                data-edit-project="${escapeHTML(project.id)}"
+                                title="Editar proyecto"
+                            >
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+
+                            <button
+                                type="button"
+                                class="project-action danger"
+                                data-delete-project="${escapeHTML(project.id)}"
+                                title="Eliminar proyecto"
+                            >
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                    <div class="project-card-body">
+
+                        <h3>
+                            ${escapeHTML(
+                                project.name
+                            )}
+                        </h3>
+
+                        <p>
+                            ${escapeHTML(
+                                project.description ||
+                                "Sin descripción"
+                            )}
+                        </p>
+
+                    </div>
+
+                    <div class="project-progress">
+
+                        <div class="project-progress-header">
+
+                            <span>
+                                Progreso
+                            </span>
+
+                            <strong>
+                                ${progress}%
+                            </strong>
+
+                        </div>
+
+                        <div class="progress-track">
+
+                            <div
+                                class="progress-fill"
+                                style="width:${progress}%"
+                            ></div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="project-card-footer">
+
+                        <span>
+                            ${completed}/${total}
+                            ${
+                                total === 1
+                                    ? "tarea"
+                                    : "tareas"
+                            }
+                        </span>
+
+                    </div>
+                `;
+
+                projectsGrid.appendChild(
+                    card
                 );
+            }
+        );
 
-            const completed =
-                projectTasks.filter(
-                    task =>
-                        isTaskCompleted(task)
-                ).length;
-
-            const total =
-                projectTasks.length;
-
-            const progress =
-                total
-                    ? Math.round(
-                        completed /
-                        total *
-                        100
-                    )
-                    : 0;
-
-            /*
-             * ICONO DEL PROYECTO
-             *
-             * Si el proyecto tiene icon definido,
-             * se utiliza ese icono.
-             *
-             * Si no tiene icono, se utiliza
-             * fa-folder como valor predeterminado.
-             */
-
-            const projectIcon =
-                project.icon ||
-                "fa-folder";
-
-            const card =
-                document.createElement("div");
-
-            card.className =
-                "project-card";
-
-            card.innerHTML = `
-                <div class="project-card-header">
-
-                    <div class="project-icon">
-                        <i class="fa-solid ${escapeHTML(projectIcon)}"></i>
-                    </div>
-
-                    <button
-                        class="row-action danger"
-                        data-delete-project="${project.id}"
-                        title="Eliminar proyecto"
-                    >
-                        <i class="fa-solid fa-trash"></i>
-                    </button>
-
-                </div>
-
-                <h3>
-                    ${escapeHTML(project.name)}
-                </h3>
-
-                <p>
-                    ${escapeHTML(
-                        project.description ||
-                        "Sin descripción"
-                    )}
-                </p>
-
-                <div class="project-progress">
-
-                    <div class="project-progress-header">
-                        <span>Progreso</span>
-
-                        <strong>
-                            ${progress}%
-                        </strong>
-                    </div>
-
-                    <div class="progress-track">
-
-                        <div
-                            class="progress-fill"
-                            style="width:${progress}%"
-                        ></div>
-
-                    </div>
-
-                </div>
-
-                <div class="project-card-footer">
-
-                    <span>
-                        ${completed}/${total}
-                        ${
-                            total === 1
-                                ? "tarea"
-                                : "tareas"
+        projectsGrid
+            .querySelectorAll(
+                "[data-edit-project]"
+            )
+            .forEach(
+                button => {
+                    button.addEventListener(
+                        "click",
+                        () => {
+                            openProjectEdit(
+                                button.dataset
+                                    .editProject
+                            );
                         }
-                    </span>
-
-                </div>
-            `;
-
-            projectsGrid.appendChild(card);
-        });
+                    );
+                }
+            );
 
         projectsGrid
             .querySelectorAll(
                 "[data-delete-project]"
             )
-            .forEach(button => {
-
-                button.addEventListener(
-                    "click",
-                    () => {
-
-                        deleteProject(
-                            button.dataset
-                                .deleteProject
-                        );
-
-                    }
-                );
-
-            });
+            .forEach(
+                button => {
+                    button.addEventListener(
+                        "click",
+                        () => {
+                            deleteProject(
+                                button.dataset
+                                    .deleteProject
+                            );
+                        }
+                    );
+                }
+            );
     }
 
+    if (projectSearch) {
+        projectSearch.addEventListener(
+            "input",
+            renderProjects
+        );
+    }
+
+    /* =========================================================
+       CREAR PROYECTO
+       ========================================================= */
+
+    document
+        .getElementById(
+            "projectForm"
+        )
+        ?.addEventListener(
+            "submit",
+            async event => {
+                event.preventDefault();
+
+                const name =
+                    document
+                        .getElementById(
+                            "projectName"
+                        )
+                        ?.value
+                        .trim();
+
+                const description =
+                    document
+                        .getElementById(
+                            "projectDescription"
+                        )
+                        ?.value
+                        .trim() ||
+                    "";
+
+                const icon =
+                    normalizeProjectIcon(
+                        projectIconInput
+                            ?.value ||
+                        DEFAULT_PROJECT_ICON
+                    );
+
+                if (!name) {
+                    showToast(
+                        "El nombre del proyecto es obligatorio.",
+                        "warning"
+                    );
+
+                    return;
+                }
+
+                const project = {
+                    name,
+                    description,
+                    icon
+                };
+
+                try {
+                    const created =
+                        await TaskFlowAPI
+                            .createProject(
+                                project
+                            );
+
+                    projects.push({
+                        ...created,
+                        icon:
+                            getProjectIcon(
+                                created
+                            )
+                    });
+
+                    event.target.reset();
+
+                    if (
+                        projectIconInput
+                    ) {
+                        projectIconInput.value =
+                            DEFAULT_PROJECT_ICON;
+                    }
+
+                    renderProjectIconSelector(
+                        DEFAULT_PROJECT_ICON
+                    );
+
+                    document
+                        .getElementById(
+                            "projectModal"
+                        )
+                        ?.classList
+                        .remove(
+                            "active"
+                        );
+
+                    updateAll();
+
+                    showToast(
+                        "Proyecto creado correctamente."
+                    );
+
+                } catch (error) {
+                    console.error(
+                        "Error creando proyecto:",
+                        error
+                    );
+
+                    showToast(
+                        error.message ||
+                        "No se pudo crear el proyecto.",
+                        "error"
+                    );
+                }
+            }
+        );
+
+    /* =========================================================
+       EDITAR PROYECTO
+       ========================================================= */
+
+    function openProjectEdit(id) {
+        const project =
+            projects.find(
+                p => p.id === id
+            );
+
+        if (!project) {
+            return;
+        }
+
+        currentEditingProjectId =
+            id;
+
+        if (projectEditName) {
+            projectEditName.value =
+                project.name ||
+                "";
+        }
+
+        if (projectEditDescription) {
+            projectEditDescription.value =
+                project.description ||
+                "";
+        }
+
+        if (projectEditIcon) {
+            projectEditIcon.value =
+                getProjectIcon(
+                    project
+                );
+        }
+
+        openModal(
+            projectEditModal
+        );
+    }
+
+    if (projectEditForm) {
+        projectEditForm.addEventListener(
+            "submit",
+            async event => {
+                event.preventDefault();
+
+                const project =
+                    projects.find(
+                        p =>
+                            p.id ===
+                            currentEditingProjectId
+                    );
+
+                if (!project) {
+                    return;
+                }
+
+                const name =
+                    projectEditName
+                        ?.value
+                        .trim() ||
+                    "";
+
+                if (!name) {
+                    showToast(
+                        "El nombre del proyecto es obligatorio.",
+                        "warning"
+                    );
+
+                    return;
+                }
+
+                const changes = {
+                    name,
+                    description:
+                        projectEditDescription
+                            ?.value
+                            .trim() ||
+                        "",
+                    icon:
+                        normalizeProjectIcon(
+                            projectEditIcon
+                                ?.value ||
+                            getProjectIcon(
+                                project
+                            )
+                        )
+                };
+
+                try {
+                    const updated =
+                        await TaskFlowAPI
+                            .updateProject(
+                                project.id,
+                                changes
+                            );
+
+                    Object.assign(
+                        project,
+                        updated,
+                        {
+                            icon:
+                                getProjectIcon(
+                                    updated
+                                )
+                        }
+                    );
+
+                    closeModal(
+                        projectEditModal
+                    );
+
+                    currentEditingProjectId =
+                        null;
+
+                    updateAll();
+
+                    showToast(
+                        "Proyecto actualizado."
+                    );
+
+                } catch (error) {
+                    console.error(
+                        "Error actualizando proyecto:",
+                        error
+                    );
+
+                    showToast(
+                        error.message ||
+                        "No se pudo actualizar el proyecto.",
+                        "error"
+                    );
+                }
+            }
+        );
+    }
 
     /* =========================================================
        ELIMINAR PROYECTO
        ========================================================= */
 
     async function deleteProject(id) {
-
         const project =
             projects.find(
                 p => p.id === id
             );
 
-        if (!project) return;
+        if (!project) {
+            return;
+        }
 
         const hasTasks =
             tasks.some(
                 task =>
-                    task.projectId === id
+                    task.projectId ===
+                    id
             );
 
         if (hasTasks) {
@@ -2387,17 +3122,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         try {
-            await TaskFlowAPI.deleteProject(
-                id
-            );
+            await TaskFlowAPI
+                .deleteProject(
+                    id
+                );
 
             projects =
                 projects.filter(
                     p => p.id !== id
                 );
 
-            renderProjects();
-            renderProjectSelects();
+            updateAll();
 
             showToast(
                 "Proyecto eliminado."
@@ -2417,134 +3152,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
-
-    /* =========================================================
-       CREAR PROYECTO
-       ========================================================= */
-
-    document
-        .getElementById("projectForm")
-        ?.addEventListener(
-            "submit",
-            async event => {
-
-                event.preventDefault();
-
-                const name =
-                    document
-                        .getElementById(
-                            "projectName"
-                        )
-                        ?.value
-                        .trim();
-
-                const description =
-                    document
-                        .getElementById(
-                            "projectDescription"
-                        )
-                        ?.value
-                        .trim();
-
-                const icon =
-                    normalizeProjectIcon(
-                        document
-                            .getElementById(
-                                "projectIcon"
-                            )
-                            ?.value ||
-                        DEFAULT_PROJECT_ICON
-                    );
-
-                if (!name) {
-                    showToast(
-                        "Escribe el nombre del proyecto.",
-                        "warning"
-                    );
-
-                    return;
-                }
-
-                try {
-                    const createdProject =
-                        await TaskFlowAPI.createProject({
-                            name,
-                            description,
-                            icon
-                        });
-
-                    projects.push({
-                        ...createdProject,
-                        icon:
-                            getProjectIcon(
-                                createdProject
-                            )
-                    });
-
-                    event.target.reset();
-
-                    setSelectedProjectIcon(
-                        DEFAULT_PROJECT_ICON
-                    );
-
-                    closeModal(
-                        "projectModal"
-                    );
-
-                    renderProjects();
-                    renderProjectSelects();
-
-                    showToast(
-                        "Proyecto creado."
-                    );
-
-                } catch (error) {
-                    console.error(
-                        "Error creando proyecto:",
-                        error
-                    );
-
-                    showToast(
-                        error.message ||
-                        "No se pudo crear el proyecto.",
-                        "error"
-                    );
-                }
-            }
-        );
-
-
-    /* =========================================================
-       BOTÓN NUEVO PROYECTO
-       ========================================================= */
-
-    if (newProjectButton) {
-
-        newProjectButton.addEventListener(
-            "click",
-            () => {
-
-                openModal(
-                    "projectModal"
-                );
-
-            }
-        );
-
-    }
-
-
     /* =========================================================
        COLABORADORES
        ========================================================= */
 
     function renderCollaborators() {
+        if (!collaboratorsGrid) {
+            return;
+        }
 
-        if (!collaboratorsGrid) return;
-
-        const search =
-            (
-                collaboratorSearch?.value ||
+        const query =
+            String(
+                collaboratorSearch
+                    ?.value ||
                 ""
             )
                 .toLowerCase()
@@ -2553,7 +3173,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         const filtered =
             collaborators.filter(
                 collaborator => {
-
                     const name =
                         String(
                             collaborator.name ||
@@ -2566,9 +3185,23 @@ document.addEventListener("DOMContentLoaded", async () => {
                             ""
                         ).toLowerCase();
 
+                    const email =
+                        String(
+                            collaborator.email ||
+                            ""
+                        ).toLowerCase();
+
                     return (
-                        name.includes(search) ||
-                        role.includes(search)
+                        !query ||
+                        name.includes(
+                            query
+                        ) ||
+                        role.includes(
+                            query
+                        ) ||
+                        email.includes(
+                            query
+                        )
                     );
                 }
             );
@@ -2576,43 +3209,28 @@ document.addEventListener("DOMContentLoaded", async () => {
         collaboratorsGrid.innerHTML =
             "";
 
-        if (collaboratorCount) {
-
-            collaboratorCount.textContent =
-                `${collaborators.length} ${
-                    collaborators.length === 1
-                        ? "colaborador"
-                        : "colaboradores"
-                }`;
-
-        }
-
-        if (!filtered.length) {
-
-            if (emptyCollaborators) {
-
-                emptyCollaborators.style.display =
-                    "flex";
-
-            }
-
-            return;
-        }
-
         if (emptyCollaborators) {
+            emptyCollaborators
+                .style
+                .display =
+                filtered.length
+                    ? "none"
+                    : "flex";
+        }
 
-            emptyCollaborators.style.display =
-                "none";
-
+        if (collaboratorCount) {
+            collaboratorCount.textContent =
+                collaborators.length;
         }
 
         filtered.forEach(
             collaborator => {
-
-                const assigned =
+                const assignedTasks =
                     tasks.filter(
                         task =>
-                            task.members &&
+                            Array.isArray(
+                                task.members
+                            ) &&
                             task.members.includes(
                                 collaborator.id
                             )
@@ -2620,15 +3238,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                 const card =
                     document.createElement(
-                        "div"
+                        "article"
                     );
 
                 card.className =
                     "collaborator-card";
 
                 card.innerHTML = `
-
-                    <div class="collaborator-card-top">
+                    <div class="collaborator-card-header">
 
                         <div class="collaborator-avatar">
                             ${escapeHTML(
@@ -2639,8 +3256,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                         </div>
 
                         <button
-                            class="row-action danger"
-                            data-delete-collaborator="${collaborator.id}"
+                            type="button"
+                            class="collaborator-delete"
+                            data-delete-collaborator="${escapeHTML(collaborator.id)}"
                             title="Eliminar colaborador"
                         >
                             <i class="fa-solid fa-trash"></i>
@@ -2648,49 +3266,53 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                     </div>
 
-                    <h3>
-                        ${escapeHTML(
-                            collaborator.name
-                        )}
-                    </h3>
+                    <div class="collaborator-card-body">
 
-                    <span class="collaborator-role">
-                        ${escapeHTML(
-                            collaborator.role ||
-                            "Sin cargo"
-                        )}
-                    </span>
+                        <h3>
+                            ${escapeHTML(
+                                collaborator.name
+                            )}
+                        </h3>
 
-                    <div class="collaborator-email">
+                        <p>
+                            ${escapeHTML(
+                                collaborator.role ||
+                                "Sin cargo"
+                            )}
+                        </p>
 
-                        <i class="fa-regular fa-envelope"></i>
-
-                        ${escapeHTML(
-                            collaborator.email ||
-                            "Sin correo"
-                        )}
+                        ${
+                            collaborator.email
+                                ? `
+                                    <span class="collaborator-email">
+                                        ${escapeHTML(
+                                            collaborator.email
+                                        )}
+                                    </span>
+                                `
+                                : ""
+                        }
 
                     </div>
 
-                    <div class="collaborator-footer">
+                    <div class="collaborator-card-footer">
 
                         <span>
-                            ${assigned}
+                            ${assignedTasks}
                             ${
-                                assigned === 1
-                                    ? " tarea"
-                                    : " tareas"
+                                assignedTasks === 1
+                                    ? "tarea asignada"
+                                    : "tareas asignadas"
                             }
                         </span>
 
                     </div>
-
                 `;
 
-                collaboratorsGrid.appendChild(
-                    card
-                );
-
+                collaboratorsGrid
+                    .appendChild(
+                        card
+                    );
             }
         );
 
@@ -2698,37 +3320,141 @@ document.addEventListener("DOMContentLoaded", async () => {
             .querySelectorAll(
                 "[data-delete-collaborator]"
             )
-            .forEach(button => {
-
-                button.addEventListener(
-                    "click",
-                    () => {
-
-                        deleteCollaborator(
-                            button.dataset
-                                .deleteCollaborator
-                        );
-
-                    }
-                );
-
-            });
-
+            .forEach(
+                button => {
+                    button.addEventListener(
+                        "click",
+                        () => {
+                            deleteCollaborator(
+                                button.dataset
+                                    .deleteCollaborator
+                            );
+                        }
+                    );
+                }
+            );
     }
 
+    if (collaboratorSearch) {
+        collaboratorSearch
+            .addEventListener(
+                "input",
+                renderCollaborators
+            );
+    }
+
+    /* =========================================================
+       CREAR COLABORADOR
+       ========================================================= */
+
+    document
+        .getElementById(
+            "collaboratorForm"
+        )
+        ?.addEventListener(
+            "submit",
+            async event => {
+                event.preventDefault();
+
+                const name =
+                    document
+                        .getElementById(
+                            "collaboratorName"
+                        )
+                        ?.value
+                        .trim();
+
+                const role =
+                    document
+                        .getElementById(
+                            "collaboratorRole"
+                        )
+                        ?.value
+                        .trim() ||
+                    "";
+
+                const email =
+                    document
+                        .getElementById(
+                            "collaboratorEmail"
+                        )
+                        ?.value
+                        .trim() ||
+                    "";
+
+                if (!name) {
+                    showToast(
+                        "El nombre del colaborador es obligatorio.",
+                        "warning"
+                    );
+
+                    return;
+                }
+
+                const collaborator = {
+                    name,
+                    role,
+                    email
+                };
+
+                try {
+                    const created =
+                        await TaskFlowAPI
+                            .createCollaborator(
+                                collaborator
+                            );
+
+                    collaborators.push(
+                        created
+                    );
+
+                    event.target.reset();
+
+                    document
+                        .getElementById(
+                            "collaboratorModal"
+                        )
+                        ?.classList
+                        .remove(
+                            "active"
+                        );
+
+                    updateAll();
+
+                    showToast(
+                        "Colaborador creado correctamente."
+                    );
+
+                } catch (error) {
+                    console.error(
+                        "Error creando colaborador:",
+                        error
+                    );
+
+                    showToast(
+                        error.message ||
+                        "No se pudo crear el colaborador.",
+                        "error"
+                    );
+                }
+            }
+        );
 
     /* =========================================================
        ELIMINAR COLABORADOR
        ========================================================= */
 
-    async function deleteCollaborator(id) {
-
+    async function deleteCollaborator(
+        id
+    ) {
         const collaborator =
             collaborators.find(
                 c => c.id === id
             );
 
-        if (!collaborator) return;
+        if (!collaborator) {
+            return;
+        }
 
         if (
             !confirm(
@@ -2739,32 +3465,40 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         try {
-            await TaskFlowAPI.deleteCollaborator(
-                id
-            );
+            await TaskFlowAPI
+                .deleteCollaborator(
+                    id
+                );
 
             collaborators =
                 collaborators.filter(
                     c => c.id !== id
                 );
 
-            tasks.forEach(task => {
-                if (
-                    Array.isArray(
-                        task.members
-                    )
-                ) {
-                    task.members =
-                        task.members.filter(
-                            memberId =>
-                                memberId !== id
-                        );
+            /*
+             * La BD debe eliminar las asignaciones
+             * relacionadas. También actualizamos
+             * la copia en memoria para reflejarlo
+             * inmediatamente en la interfaz.
+             */
+            tasks.forEach(
+                task => {
+                    if (
+                        Array.isArray(
+                            task.members
+                        )
+                    ) {
+                        task.members =
+                            task.members.filter(
+                                memberId =>
+                                    memberId !==
+                                    id
+                            );
+                    }
                 }
-            });
+            );
 
-            renderCollaborators();
-            renderTasks();
-            renderCompleted();
+            updateAll();
 
             showToast(
                 "Colaborador eliminado."
@@ -2784,1023 +3518,75 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
-
     /* =========================================================
-       FORMULARIO COLABORADOR
+       BOTONES NUEVO PROYECTO / COLABORADOR
        ========================================================= */
 
-    document
-        .getElementById("collaboratorForm")
-        ?.addEventListener(
-            "submit",
-            async event => {
-
-                event.preventDefault();
-
-                const name =
-                    document
-                        .getElementById(
-                            "collaboratorName"
-                        )
-                        ?.value
-                        .trim();
-
-                const role =
-                    document
-                        .getElementById(
-                            "collaboratorRole"
-                        )
-                        ?.value
-                        .trim();
-
-                const email =
-                    document
-                        .getElementById(
-                            "collaboratorEmail"
-                        )
-                        ?.value
-                        .trim();
-
-                if (!name) {
-                    showToast(
-                        "Escribe el nombre del colaborador.",
-                        "warning"
-                    );
-
-                    return;
-                }
-
-                try {
-                    const createdCollaborator =
-                        await TaskFlowAPI.createCollaborator({
-                            name,
-                            role,
-                            email
-                        });
-
-                    collaborators.push(
-                        createdCollaborator
-                    );
-
-                    event.target.reset();
-
-                    closeModal(
-                        "collaboratorModal"
-                    );
-
-                    renderCollaborators();
-
-                    showToast(
-                        "Colaborador agregado."
-                    );
-
-                } catch (error) {
-                    console.error(
-                        "Error creando colaborador:",
-                        error
-                    );
-
-                    showToast(
-                        error.message ||
-                        "No se pudo crear el colaborador.",
-                        "error"
-                    );
-                }
-            }
-        );
-
-
-    /* =========================================================
-       NUEVO COLABORADOR
-       ========================================================= */
-
-    if (newCollaboratorButton) {
-
-        newCollaboratorButton.addEventListener(
-            "click",
-            () => {
-
-                openModal(
-                    "collaboratorModal"
-                );
-
-            }
-        );
-
-    }
-
-
-    if (collaboratorSearch) {
-
-        collaboratorSearch.addEventListener(
-            "input",
-            renderCollaborators
-        );
-
-    }
-
-
-    /* =========================================================
-       MODAL DE INTEGRANTES
-       ========================================================= */
-
-    function openMembersModal(taskId) {
-
-        currentMembersTaskId =
-            taskId;
-
-        const task =
-            tasks.find(
-                t => t.id === taskId
-            );
-
-        selectedMembers =
-            task?.members
-                ? [...task.members]
-                : [];
-
-        renderMembersSelector();
-
-        openModal(
-            "membersModal"
-        );
-    }
-
-
-    function renderMembersSelector() {
-
-        const selector =
-            document.getElementById(
-                "membersSelector"
-            );
-
-        if (!selector) return;
-
-        selector.innerHTML = "";
-
-        if (!collaborators.length) {
-
-            selector.innerHTML = `
-                <div class="members-empty">
-
-                    <i class="fa-solid fa-users"></i>
-
-                    <p>
-                        Primero debes crear colaboradores.
-                    </p>
-
-                </div>
-            `;
-
-            return;
-        }
-
-        collaborators.forEach(member => {
-
-            const selected =
-                selectedMembers.includes(
-                    member.id
-                );
-
-            const item =
-                document.createElement(
-                    "button"
-                );
-
-            item.type =
-                "button";
-
-            item.className =
-                `member-selector-item ${
-                    selected
-                        ? "selected"
-                        : ""
-                }`;
-
-            item.innerHTML = `
-
-                <div class="member-selector-avatar">
-
-                    ${escapeHTML(
-                        getInitials(
-                            member.name
-                        )
-                    )}
-
-                </div>
-
-                <div class="member-selector-info">
-
-                    <strong>
-                        ${escapeHTML(
-                            member.name
-                        )}
-                    </strong>
-
-                    <span>
-                        ${escapeHTML(
-                            member.role ||
-                            "Sin cargo"
-                        )}
-                    </span>
-
-                </div>
-
-                <div class="member-selector-check">
-
-                    <i class="fa-solid fa-check"></i>
-
-                </div>
-
-            `;
-
-            item.addEventListener(
+    if (newProjectButton) {
+        newProjectButton
+            .addEventListener(
                 "click",
                 () => {
+                    const modal =
+                        document.getElementById(
+                            "projectModal"
+                        );
 
                     if (
-                        selectedMembers.includes(
-                            member.id
-                        )
+                        projectIconInput
                     ) {
-
-                        selectedMembers =
-                            selectedMembers.filter(
-                                id =>
-                                    id !==
-                                    member.id
-                            );
-
-                    } else {
-
-                        selectedMembers.push(
-                            member.id
-                        );
-
+                        projectIconInput.value =
+                            DEFAULT_PROJECT_ICON;
                     }
 
-                    renderMembersSelector();
+                    initializeProjectIconSelector();
 
-                }
-            );
-
-            selector.appendChild(
-                item
-            );
-
-        });
-
-    }
-
-
-    /* =========================================================
-       ASIGNACIÓN DESDE CREACIÓN RÁPIDA
-       ========================================================= */
-
-    if (inlineMembersButton) {
-
-        inlineMembersButton.addEventListener(
-            "click",
-            () => {
-
-                showToast(
-                    "Primero crea la tarea y luego podrás asignar integrantes.",
-                    "warning"
-                );
-
-            }
-        );
-
-    }
-
-
-    /* =========================================================
-       GUARDAR INTEGRANTES
-       ========================================================= */
-
-    if (saveMembersButton) {
-
-        saveMembersButton.addEventListener(
-            "click",
-            async () => {
-
-                if (
-                    !currentMembersTaskId
-                ) {
-                    return;
-                }
-
-                const task =
-                    tasks.find(
-                        t =>
-                            t.id ===
-                            currentMembersTaskId
-                    );
-
-                if (!task) return;
-
-                const previousMembers =
-                    Array.isArray(
-                        task.members
-                    )
-                        ? [...task.members]
-                        : [];
-
-                const toAssign =
-                    selectedMembers.filter(
-                        memberId =>
-                            !previousMembers.includes(
-                                memberId
-                            )
-                    );
-
-                const toRemove =
-                    previousMembers.filter(
-                        memberId =>
-                            !selectedMembers.includes(
-                                memberId
-                            )
-                    );
-
-                try {
-                    await Promise.all([
-                        ...toAssign.map(
-                            memberId =>
-                                TaskFlowAPI.assignCollaborator(
-                                    task.id,
-                                    memberId
-                                )
-                        ),
-                        ...toRemove.map(
-                            memberId =>
-                                TaskFlowAPI.removeCollaborator(
-                                    task.id,
-                                    memberId
-                                )
-                        )
-                    ]);
-
-                    task.members =
-                        [...selectedMembers];
-
-                    closeModal(
-                        "membersModal"
-                    );
-
-                    renderTasks();
-                    renderCollaborators();
-                    renderCompleted();
-
-                    showToast(
-                        "Integrantes actualizados."
-                    );
-
-                } catch (error) {
-                    console.error(
-                        "Error actualizando integrantes:",
-                        error
-                    );
-
-                    showToast(
-                        error.message ||
-                        "No se pudieron actualizar los integrantes.",
-                        "error"
+                    openModal(
+                        modal
                     );
                 }
-            }
-        );
+            );
     }
 
-
-    /* =========================================================
-       EDITAR TAREA
-       ========================================================= */
-
-    function openTaskEdit(id) {
-
-        const task =
-            tasks.find(
-                t => t.id === id
-            );
-
-        if (!task) return;
-
-        currentEditingTaskId =
-            id;
-
-        const editTaskId =
-            document.getElementById(
-                "editTaskId"
-            );
-
-        const editTaskTitle =
-            document.getElementById(
-                "editTaskTitle"
-            );
-
-        const editTaskPriority =
-            document.getElementById(
-                "editTaskPriority"
-            );
-
-        const editTaskProject =
-            document.getElementById(
-                "editTaskProject"
-            );
-
-        const editTaskDate =
-            document.getElementById(
-                "editTaskDate"
-            );
-
-        if (editTaskId) {
-
-            editTaskId.value =
-                id;
-
-        }
-
-        if (editTaskTitle) {
-
-            editTaskTitle.value =
-                task.title ||
-                task["TAREA PRINCIPAL"] ||
-                "";
-
-        }
-
-        if (editTaskPriority) {
-
-            editTaskPriority.value =
-                task.priority ||
-                "media";
-
-        }
-
-        renderProjectSelects();
-
-        if (editTaskProject) {
-
-            editTaskProject.value =
-                task.projectId ||
-                "";
-
-        }
-
-        if (editTaskDate) {
-
-            editTaskDate.value =
-                task.date ||
-                "";
-
-        }
-
-        openModal(
-            "taskEditModal"
-        );
-    }
-
-
-    /* =========================================================
-       GUARDAR EDICIÓN DE TAREA
-       ========================================================= */
-
-    document
-        .getElementById("taskEditForm")
-        ?.addEventListener(
-            "submit",
-            async event => {
-
-                event.preventDefault();
-
-                const task =
-                    tasks.find(
-                        t =>
-                            t.id ===
-                            currentEditingTaskId
-                    );
-
-                if (!task) return;
-
-                const title =
-                    document
-                        .getElementById(
-                            "editTaskTitle"
-                        )
-                        ?.value
-                        .trim() ||
-                    "";
-
-                const priority =
-                    document
-                        .getElementById(
-                            "editTaskPriority"
-                        )
-                        ?.value ||
-                    "media";
-
-                const projectId =
-                    document
-                        .getElementById(
-                            "editTaskProject"
-                        )
-                        ?.value ||
-                    "";
-
-                const date =
-                    document
-                        .getElementById(
-                            "editTaskDate"
-                        )
-                        ?.value ||
-                    "";
-
-                if (!title) {
-                    showToast(
-                        "Escribe el nombre de la tarea.",
-                        "warning"
-                    );
-
-                    return;
-                }
-
-                try {
-                    const previousMembers =
-                        Array.isArray(
-                            task.members
-                        )
-                            ? [...task.members]
-                            : [];
-
-                    const completed =
-                        task.completed;
-
-                    const completedAt =
-                        task.completedAt;
-
-                    const updated =
-                        await TaskFlowAPI.updateTask(
-                            task.id,
-                            {
-                                ...task,
-                                title,
-                                priority,
-                                projectId,
-                                date
-                            }
-                        );
-
-                    Object.assign(
-                        task,
-                        normalizeTask(updated)
-                    );
-
-                    task.members =
-                        previousMembers;
-
-                    task.completed =
-                        completed;
-
-                    task.completedAt =
-                        completedAt;
-
-                    if (completed) {
-                        task.status =
-                            "Finalizado";
-                        task.ESTADO =
-                            "Finalizado";
-                    }
-
-                    closeModal(
-                        "taskEditModal"
-                    );
-
-                    updateAll();
-
-                    showToast(
-                        "Tarea actualizada."
-                    );
-
-                } catch (error) {
-                    console.error(
-                        "Error actualizando tarea:",
-                        error
-                    );
-
-                    showToast(
-                        error.message ||
-                        "No se pudo actualizar la tarea.",
-                        "error"
-                    );
-                }
-            }
-        );
-
-
-    /* =========================================================
-       MODALES
-       ========================================================= */
-
-    function openModal(id) {
-
-        const modal =
-            document.getElementById(
-                id
-            );
-
-        if (!modal) return;
-
-        modal.classList.add(
-            "active"
-        );
-
-        document.body.classList.add(
-            "modal-open"
-        );
-    }
-
-
-    function closeModal(id) {
-
-        const modal =
-            document.getElementById(
-                id
-            );
-
-        if (!modal) return;
-
-        modal.classList.remove(
-            "active"
-        );
-
-        document.body.classList.remove(
-            "modal-open"
-        );
-    }
-
-
-    document
-        .querySelectorAll(
-            "[data-close]"
-        )
-        .forEach(button => {
-
-            button.addEventListener(
+    if (newCollaboratorButton) {
+        newCollaboratorButton
+            .addEventListener(
                 "click",
-                () =>
-                    closeModal(
-                        button.dataset.close
-                    )
-            );
-
-        });
-
-
-    document
-        .querySelectorAll(
-            ".modal-overlay"
-        )
-        .forEach(overlay => {
-
-            overlay.addEventListener(
-                "click",
-                event => {
-
-                    if (
-                        event.target ===
-                        overlay
-                    ) {
-
-                        closeModal(
-                            overlay.id
-                        );
-
-                    }
-
+                () => {
+                    openModal(
+                        document.getElementById(
+                            "collaboratorModal"
+                        )
+                    );
                 }
             );
-
-        });
-
-
-    /* =========================================================
-       ESCAPE
-       ========================================================= */
-
-    document.addEventListener(
-        "keydown",
-        event => {
-
-            if (
-                event.key !==
-                "Escape"
-            ) {
-                return;
-            }
-
-            document
-                .querySelectorAll(
-                    ".modal-overlay.active"
-                )
-                .forEach(modal =>
-                    closeModal(
-                        modal.id
-                    )
-                );
-
-            const searchOverlay =
-                document.getElementById(
-                    "searchOverlay"
-                );
-
-            if (
-                searchOverlay?.classList.contains(
-                    "active"
-                )
-            ) {
-
-                searchOverlay.classList.remove(
-                    "active"
-                );
-
-            }
-
-            const filtersPanel =
-                document.getElementById(
-                    "taskFiltersPanel"
-                );
-
-            if (filtersPanel) {
-
-                filtersPanel.style.display =
-                    "none";
-
-            }
-
-        }
-    );
-
-
-    /* =========================================================
-       DASHBOARD
-       ========================================================= */
-
-    function updateDashboard() {
-
-        const total =
-            tasks.length;
-
-        const completed =
-            tasks.filter(
-                isTaskCompleted
-            ).length;
-
-        const pending =
-            tasks.filter(
-                task =>
-                    !isTaskCompleted(task)
-            ).length;
-
-        const progress =
-            total
-                ? Math.round(
-                    completed /
-                    total *
-                    100
-                )
-                : 0;
-
-        const high =
-            tasks.filter(
-                task =>
-                    !isTaskCompleted(task) &&
-                    task.priority === "alta"
-            ).length;
-
-        const medium =
-            tasks.filter(
-                task =>
-                    !isTaskCompleted(task) &&
-                    task.priority === "media"
-            ).length;
-
-        const low =
-            tasks.filter(
-                task =>
-                    !isTaskCompleted(task) &&
-                    task.priority === "baja"
-            ).length;
-
-        setText(
-            "dashboardTotal",
-            total
-        );
-
-        setText(
-            "dashboardPending",
-            pending
-        );
-
-        setText(
-            "dashboardCompleted",
-            completed
-        );
-
-        setText(
-            "dashboardProgress",
-            `${progress}%`
-        );
-
-        setText(
-            "dashboardCircleValue",
-            `${progress}%`
-        );
-
-        setText(
-            "breakdownPending",
-            pending
-        );
-
-        setText(
-            "breakdownCompleted",
-            completed
-        );
-
-        setText(
-            "priorityHighCount",
-            high
-        );
-
-        setText(
-            "priorityMediumCount",
-            medium
-        );
-
-        setText(
-            "priorityLowCount",
-            low
-        );
-
-        updateBar(
-            "priorityHighBar",
-            high,
-            total
-        );
-
-        updateBar(
-            "priorityMediumBar",
-            medium,
-            total
-        );
-
-        updateBar(
-            "priorityLowBar",
-            low,
-            total
-        );
-
-        const circle =
-            document.getElementById(
-                "dashboardCircle"
-            );
-
-        if (circle) {
-
-            circle.style.setProperty(
-                "--progress",
-                `${progress * 3.6}deg`
-            );
-
-        }
-
     }
 
-
-    function updateBar(
-        id,
-        value,
-        total
-    ) {
-
-        const bar =
-            document.getElementById(
-                id
-            );
-
-        if (!bar) return;
-
-        bar.style.width =
-            `${
-                total
-                    ? value /
-                      total *
-                      100
-                    : 0
-            }%`;
-    }
-
-
-    function setText(
-        id,
-        value
-    ) {
-
-        const element =
-            document.getElementById(
-                id
-            );
-
-        if (element) {
-
-            element.textContent =
-                value;
-
-        }
-
-    }
-
-
-    /* =========================================================
-       RESUMEN
+        /* =========================================================
+       TAREAS COMPLETADAS
        ========================================================= */
 
-    function updateSummary() {
-
-        const total =
-            tasks.length;
-
-        const completed =
-            tasks.filter(
-                isTaskCompleted
-            ).length;
-
-        const pending =
-            tasks.filter(
-                task =>
-                    !isTaskCompleted(task)
-            ).length;
-
-        const progress =
-            total
-                ? Math.round(
-                    completed /
-                    total *
-                    100
-                )
-                : 0;
-
-        setText(
-            "totalTasks",
-            total
-        );
-
-        setText(
-            "pendingTasks",
-            pending
-        );
-
-        setText(
-            "completedTasks",
-            completed
-        );
-
-        setText(
-            "taskProgress",
-            `${progress}%`
-        );
-
-    }
-
-
-    /* =========================================================
-       TAREAS FINALIZADAS
-       ========================================================= */
-
-    function renderCompleted() {
-
-        if (!completedTableBody) {
-            return;
-        }
-
-        const search =
-            (
+    function getFilteredCompletedTasks() {
+        const query =
+            String(
                 completedSearch?.value ||
                 ""
             )
                 .toLowerCase()
                 .trim();
 
-        const completed =
-            tasks.filter(task => {
+        const projectFilter =
+            completedProjectFilter?.value ||
+            "all";
 
+        return tasks
+            .filter(task => {
                 if (
-                    !isTaskCompleted(task)
+                    !isTaskCompleted(
+                        task
+                    )
                 ) {
                     return false;
-                }
-
-                if (!search) {
-                    return true;
                 }
 
                 const title =
@@ -3810,517 +3596,788 @@ document.addEventListener("DOMContentLoaded", async () => {
                         ""
                     ).toLowerCase();
 
-                return (
-                    title.includes(search) ||
+                const secondary =
+                    String(
+                        task.secondaryTask ||
+                        task.secondary_task ||
+                        task["TAREA SECUNDARIA"] ||
+                        ""
+                    ).toLowerCase();
+
+                const projectName =
                     getProjectName(
                         task.projectId
-                    )
-                        .toLowerCase()
-                        .includes(search)
+                    ).toLowerCase();
+
+                const matchesSearch =
+                    !query ||
+                    title.includes(query) ||
+                    secondary.includes(query) ||
+                    projectName.includes(query);
+
+                const matchesProject =
+                    projectFilter === "all" ||
+                    task.projectId ===
+                        projectFilter;
+
+                return (
+                    matchesSearch &&
+                    matchesProject
                 );
+            })
+            .sort(
+                (a, b) => {
+                    const dateA =
+                        a.completedAt
+                            ? new Date(
+                                a.completedAt
+                            ).getTime()
+                            : 0;
 
-            });
+                    const dateB =
+                        b.completedAt
+                            ? new Date(
+                                b.completedAt
+                            ).getTime()
+                            : 0;
 
-        completedTableBody.innerHTML =
-            "";
+                    return (
+                        dateB -
+                        dateA
+                    );
+                }
+            );
+    }
 
-        if (completedTotalPage) {
-
-            completedTotalPage.textContent =
-                tasks.filter(
-                    isTaskCompleted
-                ).length;
-
-        }
-
-        if (!completed.length) {
-
-            if (emptyCompleted) {
-
-                emptyCompleted.style.display =
-                    "flex";
-
-            }
-
+    function renderCompleted() {
+        if (!completedList) {
             return;
         }
 
+        const completed =
+            getFilteredCompletedTasks();
+
+        completedList.innerHTML =
+            "";
+
         if (emptyCompleted) {
-
             emptyCompleted.style.display =
-                "none";
-
+                completed.length
+                    ? "none"
+                    : "flex";
         }
 
-        completed.forEach(task => {
+        if (completedCount) {
+            completedCount.textContent =
+                completed.length;
+        }
 
-            const row =
-                document.createElement(
-                    "tr"
-                );
+        completed.forEach(
+            task => {
+                const item =
+                    document.createElement(
+                        "div"
+                    );
 
-            let membersHTML =
-                "—";
+                item.className =
+                    "completed-item";
 
-            if (
-                task.members &&
-                task.members.length
-            ) {
+                item.dataset.id =
+                    task.id;
 
-                membersHTML =
+                const title =
+                    task.title ||
+                    task["TAREA PRINCIPAL"] ||
+                    "Sin título";
+
+                const projectName =
+                    getProjectName(
+                        task.projectId
+                    );
+
+                const completedDate =
+                    task.completedAt
+                        ? formatDate(
+                            String(
+                                task.completedAt
+                            ).split("T")[0]
+                        )
+                        : "Sin fecha";
+
+                let membersHTML =
+                    "";
+
+                if (
+                    Array.isArray(
+                        task.members
+                    ) &&
+                    task.members.length
+                ) {
+                    membersHTML = `
+                        <div class="completed-members">
+                    `;
+
                     task.members
-                        .map(id => {
+                        .slice(0, 4)
+                        .forEach(
+                            memberId => {
+                                const member =
+                                    getCollaborator(
+                                        memberId
+                                    );
 
-                            const member =
-                                getCollaborator(
-                                    id
-                                );
+                                if (!member) {
+                                    return;
+                                }
 
-                            return member
-                                ? escapeHTML(
-                                    member.name
-                                )
-                                : "";
+                                membersHTML += `
+                                    <span
+                                        class="member-avatar"
+                                        title="${escapeHTML(member.name)}"
+                                    >
+                                        ${escapeHTML(
+                                            getInitials(
+                                                member.name
+                                            )
+                                        )}
+                                    </span>
+                                `;
+                            }
+                        );
 
-                        })
-                        .filter(Boolean)
-                        .join(", ");
+                    if (
+                        task.members.length >
+                        4
+                    ) {
+                        membersHTML += `
+                            <span class="member-more">
+                                +${task.members.length - 4}
+                            </span>
+                        `;
+                    }
 
-            } else if (
-                task.COLABORADORES
-            ) {
+                    membersHTML +=
+                        "</div>";
+                }
 
-                membersHTML =
-                    escapeHTML(
-                        task.COLABORADORES
-                    );
+                item.innerHTML = `
+                    <div class="completed-check">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
 
+                    <div class="completed-main">
+
+                        <div class="completed-title">
+                            ${escapeHTML(
+                                title
+                            )}
+                        </div>
+
+                        <div class="completed-meta">
+
+                            <span>
+                                <i class="fa-solid fa-folder"></i>
+                                ${escapeHTML(
+                                    projectName
+                                )}
+                            </span>
+
+                            <span>
+                                <i class="fa-solid fa-calendar-check"></i>
+                                ${escapeHTML(
+                                    completedDate
+                                )}
+                            </span>
+
+                            ${membersHTML}
+
+                        </div>
+
+                    </div>
+
+                    <div class="completed-actions">
+
+                        <button
+                            type="button"
+                            class="completed-action restore"
+                            data-restore-task="${escapeHTML(task.id)}"
+                            title="Restaurar tarea"
+                        >
+                            <i class="fa-solid fa-rotate-left"></i>
+                        </button>
+
+                        <button
+                            type="button"
+                            class="completed-action danger"
+                            data-delete-completed="${escapeHTML(task.id)}"
+                            title="Eliminar tarea"
+                        >
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+
+                    </div>
+                `;
+
+                completedList.appendChild(
+                    item
+                );
             }
+        );
 
-            const completedDate =
-                task.completedAt
-                    ? formatDate(
-                        String(
-                            task.completedAt
-                        ).substring(
-                            0,
-                            10
-                        )
-                    )
-                    : formatDate(
-                        task[
-                            "FECHA FINALIZADA"
-                        ]
+        completedList
+            .querySelectorAll(
+                "[data-restore-task]"
+            )
+            .forEach(
+                button => {
+                    button.addEventListener(
+                        "click",
+                        () => {
+                            restoreTask(
+                                button.dataset
+                                    .restoreTask
+                            );
+                        }
                     );
-
-            const title =
-                task.title ||
-                task["TAREA PRINCIPAL"] ||
-                "Sin título";
-
-            row.innerHTML = `
-
-                <td>
-                    <strong>
-                        ${escapeHTML(title)}
-                    </strong>
-                </td>
-
-                <td>
-                    <span
-                        class="priority-badge ${
-                            task.priority ||
-                            "media"
-                        }"
-                    >
-                        ${priorityLabel(
-                            task.priority
-                        )}
-                    </span>
-                </td>
-
-                <td>
-                    ${escapeHTML(
-                        getProjectName(
-                            task.projectId
-                        )
-                    )}
-                </td>
-
-                <td>
-                    ${membersHTML}
-                </td>
-
-                <td>
-                    ${formatDate(
-                        task.date ||
-                        task["FECHA REGISTRO"]
-                    )}
-                </td>
-
-                <td>
-                    ${completedDate}
-                </td>
-
-                <td>
-
-                    <button
-                        class="row-action restore-task"
-                        data-action="restore"
-                        data-id="${task.id}"
-                        title="Restaurar tarea"
-                    >
-
-                        <i class="fa-solid fa-rotate-left"></i>
-
-                    </button>
-
-                </td>
-
-            `;
-
-            completedTableBody.appendChild(
-                row
+                }
             );
 
-        });
-
+        completedList
+            .querySelectorAll(
+                "[data-delete-completed]"
+            )
+            .forEach(
+                button => {
+                    button.addEventListener(
+                        "click",
+                        () => {
+                            deleteTask(
+                                button.dataset
+                                    .deleteCompleted
+                            );
+                        }
+                    );
+                }
+            );
     }
 
-
     if (completedSearch) {
-
         completedSearch.addEventListener(
             "input",
             renderCompleted
         );
-
     }
 
-
-    if (completedTableBody) {
-
-        completedTableBody.addEventListener(
-            "click",
-            event => {
-
-                const button =
-                    event.target.closest(
-                        '[data-action="restore"]'
-                    );
-
-                if (!button) return;
-
-                restoreTask(
-                    button.dataset.id
-                );
-
-            }
-        );
-
+    if (completedProjectFilter) {
+        completedProjectFilter
+            .addEventListener(
+                "change",
+                renderCompleted
+            );
     }
 
+    /* =========================================================
+       ESTADÍSTICAS
+       ========================================================= */
+
+    function updateStats() {
+        const total =
+            tasks.length;
+
+        const completed =
+            tasks.filter(
+                task =>
+                    isTaskCompleted(
+                        task
+                    )
+            ).length;
+
+        const pending =
+            total -
+            completed;
+
+        if (totalTasks) {
+            totalTasks.textContent =
+                total;
+        }
+
+        if (pendingTasks) {
+            pendingTasks.textContent =
+                pending;
+        }
+
+        if (completedTasks) {
+            completedTasks.textContent =
+                completed;
+        }
+
+        if (taskProgress) {
+            const percentage =
+                total
+                    ? Math.round(
+                        completed /
+                        total *
+                        100
+                    )
+                    : 0;
+
+            taskProgress.style.width =
+                `${percentage}%`;
+
+            taskProgress.setAttribute(
+                "aria-valuenow",
+                percentage
+            );
+        }
+    }
 
     /* =========================================================
        BÚSQUEDA GLOBAL
        ========================================================= */
 
-    const searchButton =
-        document.getElementById(
-            "searchButton"
-        );
+    function closeGlobalSearch() {
+        if (globalSearch) {
+            globalSearch.classList.remove(
+                "active"
+            );
+        }
 
-    const searchOverlay =
-        document.getElementById(
-            "searchOverlay"
-        );
+        if (searchOverlay) {
+            searchOverlay.classList.remove(
+                "active"
+            );
+        }
 
-    const globalSearchInput =
-        document.getElementById(
-            "globalSearchInput"
-        );
+        if (globalSearchResults) {
+            globalSearchResults.innerHTML =
+                "";
+        }
+    }
 
-    const closeSearch =
-        document.getElementById(
-            "closeSearch"
-        );
+    function openGlobalSearch() {
+        if (globalSearch) {
+            globalSearch.classList.add(
+                "active"
+            );
+        }
 
-    const globalSearchResults =
-        document.getElementById(
-            "globalSearchResults"
-        );
+        if (searchOverlay) {
+            searchOverlay.classList.add(
+                "active"
+            );
+        }
 
-
-    if (searchButton) {
-
-        searchButton.addEventListener(
-            "click",
+        setTimeout(
             () => {
-
-                if (!searchOverlay) {
-                    return;
-                }
-
-                searchOverlay.classList.add(
-                    "active"
-                );
-
-                globalSearchInput?.focus();
-
-            }
+                globalSearchInput
+                    ?.focus();
+            },
+            50
         );
-
     }
 
-
-    if (closeSearch) {
-
-        closeSearch.addEventListener(
-            "click",
-            () => {
-
-                searchOverlay?.classList.remove(
-                    "active"
-                );
-
-            }
-        );
-
-    }
-
-
-    if (globalSearchInput) {
-
-        globalSearchInput.addEventListener(
-            "input",
-            performGlobalSearch
-        );
-
-    }
-
-
-    function performGlobalSearch() {
-
+    function renderGlobalSearch() {
         if (
-            !globalSearchInput ||
-            !globalSearchResults
+            !globalSearchResults ||
+            !globalSearchInput
         ) {
             return;
         }
 
         const query =
-            globalSearchInput.value
+            globalSearchInput
+                .value
                 .toLowerCase()
                 .trim();
 
-        if (!query) {
-
-            globalSearchResults.innerHTML = `
-
-                <div class="search-empty">
-
-                    <i class="fa-solid fa-magnifying-glass"></i>
-
-                    <span>
-                        Escribe para comenzar la búsqueda
-                    </span>
-
-                </div>
-
-            `;
-
-            return;
-        }
-
-        const results = [];
-
-
-        tasks.forEach(task => {
-
-            const title =
-                String(
-                    task.title ||
-                    task["TAREA PRINCIPAL"] ||
-                    ""
-                );
-
-            if (
-                title
-                    .toLowerCase()
-                    .includes(query)
-            ) {
-
-                results.push({
-
-                    type: "Tarea",
-
-                    title,
-
-                    action: "tareas"
-
-                });
-
-            }
-
-        });
-
-
-        projects.forEach(project => {
-
-            const name =
-                String(
-                    project.name ||
-                    ""
-                );
-
-            if (
-                name
-                    .toLowerCase()
-                    .includes(query)
-            ) {
-
-                results.push({
-
-                    type: "Proyecto",
-
-                    title: name,
-
-                    action: "proyectos"
-
-                });
-
-            }
-
-        });
-
-
-        collaborators.forEach(member => {
-
-            const name =
-                String(
-                    member.name ||
-                    ""
-                );
-
-            if (
-                name
-                    .toLowerCase()
-                    .includes(query)
-            ) {
-
-                results.push({
-
-                    type: "Colaborador",
-
-                    title: name,
-
-                    action: "colaboradores"
-
-                });
-
-            }
-
-        });
-
-
-        if (!results.length) {
-
-            globalSearchResults.innerHTML = `
-
-                <div class="search-empty">
-
-                    <i class="fa-regular fa-face-frown"></i>
-
-                    <span>
-                        No encontramos resultados.
-                    </span>
-
-                </div>
-
-            `;
-
-            return;
-        }
-
-
         globalSearchResults.innerHTML =
-            results
-                .slice(0, 12)
-                .map(result => `
+            "";
 
-                    <button
-                        class="global-result"
-                        data-result-view="${result.action}"
-                    >
+        if (!query) {
+            globalSearchResults.innerHTML = `
+                <div class="global-search-empty">
+                    Escribe para buscar tareas,
+                    proyectos o colaboradores.
+                </div>
+            `;
 
-                        <div class="global-result-icon">
+            return;
+        }
 
-                            <i class="fa-solid ${
-                                result.type === "Tarea"
-                                    ? "fa-list-check"
-                                    : result.type === "Proyecto"
-                                        ? "fa-folder"
-                                        : "fa-user"
-                            }"></i>
+        const taskResults =
+            tasks
+                .filter(
+                    task => {
+                        const title =
+                            String(
+                                task.title ||
+                                task["TAREA PRINCIPAL"] ||
+                                ""
+                            ).toLowerCase();
 
-                        </div>
+                        return title.includes(
+                            query
+                        );
+                    }
+                )
+                .slice(
+                    0,
+                    10
+                );
 
-                        <div>
+        const projectResults =
+            projects
+                .filter(
+                    project =>
+                        String(
+                            project.name ||
+                            ""
+                        )
+                            .toLowerCase()
+                            .includes(
+                                query
+                            )
+                )
+                .slice(
+                    0,
+                    10
+                );
+
+        const collaboratorResults =
+            collaborators
+                .filter(
+                    collaborator =>
+                        String(
+                            collaborator.name ||
+                            ""
+                        )
+                            .toLowerCase()
+                            .includes(
+                                query
+                            )
+                )
+                .slice(
+                    0,
+                    10
+                );
+
+        if (
+            !taskResults.length &&
+            !projectResults.length &&
+            !collaboratorResults.length
+        ) {
+            globalSearchResults.innerHTML = `
+                <div class="global-search-empty">
+                    No se encontraron resultados.
+                </div>
+            `;
+
+            return;
+        }
+
+        if (taskResults.length) {
+            const section =
+                document.createElement(
+                    "div"
+                );
+
+            section.className =
+                "global-search-section";
+
+            section.innerHTML = `
+                <div class="global-search-section-title">
+                    Tareas
+                </div>
+            `;
+
+            taskResults.forEach(
+                task => {
+                    const button =
+                        document.createElement(
+                            "button"
+                        );
+
+                    button.type =
+                        "button";
+
+                    button.className =
+                        "global-search-result";
+
+                    button.innerHTML = `
+                        <span class="global-search-icon">
+                            <i class="fa-solid fa-list-check"></i>
+                        </span>
+
+                        <span class="global-search-info">
 
                             <strong>
                                 ${escapeHTML(
-                                    result.title
+                                    task.title ||
+                                    task["TAREA PRINCIPAL"] ||
+                                    "Sin título"
                                 )}
                             </strong>
 
-                            <span>
-                                ${result.type}
-                            </span>
+                            <small>
+                                ${escapeHTML(
+                                    getProjectName(
+                                        task.projectId
+                                    )
+                                )}
+                            </small>
 
-                        </div>
+                        </span>
+                    `;
 
-                    </button>
+                    button.addEventListener(
+                        "click",
+                        () => {
+                            closeGlobalSearch();
 
-                `)
-                .join("");
+                            if (
+                                isTaskCompleted(
+                                    task
+                                )
+                            ) {
+                                changeView(
+                                    "completadas"
+                                );
+                            } else {
+                                changeView(
+                                    "tareas"
+                                );
+                            }
+                        }
+                    );
 
+                    section.appendChild(
+                        button
+                    );
+                }
+            );
 
-        globalSearchResults
-            .querySelectorAll(
-                "[data-result-view]"
-            )
-            .forEach(button => {
+            globalSearchResults
+                .appendChild(
+                    section
+                );
+        }
 
-                button.addEventListener(
-                    "click",
-                    () => {
-
-                        searchOverlay?.classList.remove(
-                            "active"
-                        );
-
-                        changeView(
-                            button.dataset
-                                .resultView
-                        );
-
-                    }
+        if (projectResults.length) {
+            const section =
+                document.createElement(
+                    "div"
                 );
 
-            });
+            section.className =
+                "global-search-section";
 
+            section.innerHTML = `
+                <div class="global-search-section-title">
+                    Proyectos
+                </div>
+            `;
+
+            projectResults.forEach(
+                project => {
+                    const button =
+                        document.createElement(
+                            "button"
+                        );
+
+                    button.type =
+                        "button";
+
+                    button.className =
+                        "global-search-result";
+
+                    button.innerHTML = `
+                        <span class="global-search-icon">
+                            <i class="fa-solid ${escapeHTML(
+                                getProjectIcon(
+                                    project
+                                )
+                            )}"></i>
+                        </span>
+
+                        <span class="global-search-info">
+
+                            <strong>
+                                ${escapeHTML(
+                                    project.name
+                                )}
+                            </strong>
+
+                            <small>
+                                Proyecto
+                            </small>
+
+                        </span>
+                    `;
+
+                    button.addEventListener(
+                        "click",
+                        () => {
+                            closeGlobalSearch();
+
+                            changeView(
+                                "proyectos"
+                            );
+                        }
+                    );
+
+                    section.appendChild(
+                        button
+                    );
+                }
+            );
+
+            globalSearchResults
+                .appendChild(
+                    section
+                );
+        }
+
+        if (
+            collaboratorResults.length
+        ) {
+            const section =
+                document.createElement(
+                    "div"
+                );
+
+            section.className =
+                "global-search-section";
+
+            section.innerHTML = `
+                <div class="global-search-section-title">
+                    Colaboradores
+                </div>
+            `;
+
+            collaboratorResults.forEach(
+                collaborator => {
+                    const button =
+                        document.createElement(
+                            "button"
+                        );
+
+                    button.type =
+                        "button";
+
+                    button.className =
+                        "global-search-result";
+
+                    button.innerHTML = `
+                        <span class="global-search-icon">
+                            <i class="fa-solid fa-user"></i>
+                        </span>
+
+                        <span class="global-search-info">
+
+                            <strong>
+                                ${escapeHTML(
+                                    collaborator.name
+                                )}
+                            </strong>
+
+                            <small>
+                                ${escapeHTML(
+                                    collaborator.role ||
+                                    "Colaborador"
+                                )}
+                            </small>
+
+                        </span>
+                    `;
+
+                    button.addEventListener(
+                        "click",
+                        () => {
+                            closeGlobalSearch();
+
+                            changeView(
+                                "colaboradores"
+                            );
+                        }
+                    );
+
+                    section.appendChild(
+                        button
+                    );
+                }
+            );
+
+            globalSearchResults
+                .appendChild(
+                    section
+                );
+        }
     }
 
+    if (globalSearchInput) {
+        globalSearchInput
+            .addEventListener(
+                "input",
+                renderGlobalSearch
+            );
+    }
+
+    if (searchOverlay) {
+        searchOverlay.addEventListener(
+            "click",
+            closeGlobalSearch
+        );
+    }
+
+    document.addEventListener(
+        "keydown",
+        event => {
+            if (
+                (event.ctrlKey ||
+                    event.metaKey) &&
+                event.key.toLowerCase() ===
+                    "k"
+            ) {
+                event.preventDefault();
+
+                openGlobalSearch();
+            }
+
+            if (
+                event.key ===
+                "Escape"
+            ) {
+                closeGlobalSearch();
+
+                document
+                    .querySelectorAll(
+                        ".modal-overlay.active"
+                    )
+                    .forEach(
+                        modal => {
+                            closeModal(
+                                modal
+                            );
+                        }
+                    );
+            }
+        }
+    );
 
     /* =========================================================
-       ACTUALIZAR TODO
+       ACTUALIZAR SELECTORES
+       ========================================================= */
+
+    function updateSelectOptions() {
+        renderProjectSelects();
+    }
+
+    /* =========================================================
+       ACTUALIZACIÓN GENERAL
        ========================================================= */
 
     function updateAll() {
-
-        actualizarTareasFinalizadas();
-
-        renderProjectSelects();
+        updateSelectOptions();
 
         renderTasks();
 
@@ -4330,62 +4387,268 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         renderCompleted();
 
-        updateSummary();
-
-        updateDashboard();
+        updateStats();
 
         updateFilterSwitches();
-
     }
 
-
     /* =========================================================
-       FECHA PREDETERMINADA
+       ESTADO DE CONEXIÓN
        ========================================================= */
 
-    if (inlineDate) {
+    function showConnectionError() {
+        const existing =
+            document.getElementById(
+                "databaseConnectionError"
+            );
 
-        inlineDate.value =
+        if (existing) {
+            return;
+        }
+
+        const warning =
+            document.createElement(
+                "div"
+            );
+
+        warning.id =
+            "databaseConnectionError";
+
+        warning.className =
+            "database-connection-error";
+
+        warning.innerHTML = `
+            <i class="fa-solid fa-triangle-exclamation"></i>
+
+            <span>
+                No fue posible conectar con el servidor.
+                Revisa que el backend esté ejecutándose.
+            </span>
+        `;
+
+        document.body.prepend(
+            warning
+        );
+    }
+
+    function removeConnectionError() {
+        document
+            .getElementById(
+                "databaseConnectionError"
+            )
+            ?.remove();
+    }
+
+    /* =========================================================
+       INICIALIZACIÓN DE FECHA
+       ========================================================= */
+
+    function initializeDates() {
+        const today =
             new Date()
                 .toISOString()
                 .split("T")[0];
 
+        if (
+            inlineDate &&
+            !inlineDate.value
+        ) {
+            inlineDate.value =
+                today;
+        }
     }
-
 
     /* =========================================================
-       INICIALIZACIÓN
+       INICIALIZAR MODALES
        ========================================================= */
 
-    views.forEach(
-        view => {
-            view.style.display =
-                "none";
-        }
-    );
+    function initializeModals() {
+        document
+            .querySelectorAll(
+                "[data-modal]"
+            )
+            .forEach(
+                button => {
+                    button.addEventListener(
+                        "click",
+                        () => {
+                            const modalId =
+                                button.dataset
+                                    .modal;
 
-    const initialView =
-        document.getElementById(
-            "view-dashboard"
-        );
+                            const modal =
+                                document.getElementById(
+                                    modalId
+                                );
 
-    if (initialView) {
-        initialView.style.display =
-            "block";
+                            if (
+                                modalId ===
+                                "projectModal"
+                            ) {
+                                initializeProjectIconSelector();
+                            }
 
-        initialView.classList.add(
-            "active"
-        );
+                            openModal(
+                                modal
+                            );
+                        }
+                    );
+                }
+            );
     }
 
+    /* =========================================================
+       SEGURIDAD CONTRA DOBLE ENVÍO
+       ========================================================= */
+
+    function setButtonLoading(
+        button,
+        loading
+    ) {
+        if (!button) {
+            return;
+        }
+
+        if (loading) {
+            button.dataset.originalHtml =
+                button.innerHTML;
+
+            button.disabled =
+                true;
+
+            button.innerHTML = `
+                <i class="fa-solid fa-spinner fa-spin"></i>
+            `;
+        } else {
+            button.disabled =
+                false;
+
+            if (
+                button.dataset
+                    .originalHtml
+            ) {
+                button.innerHTML =
+                    button.dataset
+                        .originalHtml;
+
+                delete button.dataset
+                    .originalHtml;
+            }
+        }
+    }
+
+    /* =========================================================
+       SINCRONIZACIÓN MANUAL
+       ========================================================= */
+
+    async function reloadFromDatabase() {
+        try {
+            const connected =
+                await loadDataFromAPI();
+
+            if (!connected) {
+                showConnectionError();
+                return false;
+            }
+
+            removeConnectionError();
+
+            updateAll();
+
+            return true;
+
+        } catch (error) {
+            console.error(
+                "Error sincronizando datos:",
+                error
+            );
+
+            showConnectionError();
+
+            return false;
+        }
+    }
+
+    /*
+     * Dejamos esta función disponible para depuración
+     * desde la consola del navegador:
+     *
+     * await TaskFlowReload()
+     */
+    window.TaskFlowReload =
+        reloadFromDatabase;
+
+    /* =========================================================
+       COMPROBACIÓN DE API
+       ========================================================= */
+
+    async function verifyAPI() {
+        if (
+            typeof TaskFlowAPI ===
+            "undefined"
+        ) {
+            console.error(
+                "TaskFlowAPI no está disponible. Comprueba que api.js se cargue antes que script.js."
+            );
+
+            showToast(
+                "No se encontró la API de TaskFlow.",
+                "error"
+            );
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /* =========================================================
+       INICIALIZACIÓN PRINCIPAL
+       ========================================================= */
+
     async function initializeApp() {
+        initializeDates();
+
+        initializeModals();
+
+        initializeProjectIconSelector();
+
+        const apiAvailable =
+            await verifyAPI();
+
+        if (!apiAvailable) {
+            showConnectionError();
+            return;
+        }
+
+        /*
+         * PostgreSQL / Neon es la única fuente
+         * de tareas, proyectos y colaboradores.
+         *
+         * Ya no se cargan datos desde:
+         *
+         * - localStorage
+         * - data.json
+         * - arreglos precargados
+         */
 
         const connected =
             await loadDataFromAPI();
 
         if (!connected) {
+            showConnectionError();
+
+            /*
+             * Aunque no haya conexión, dibujamos
+             * la aplicación vacía para evitar
+             * errores visuales.
+             */
+            updateAll();
+
             return;
         }
+
+        removeConnectionError();
 
         updateAll();
 
@@ -4393,6 +4656,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             "TaskFlow conectado a PostgreSQL correctamente."
         );
     }
+
+    /* =========================================================
+       ARRANQUE
+       ========================================================= */
 
     await initializeApp();
 
