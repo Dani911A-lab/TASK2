@@ -1,16 +1,27 @@
-const express = require('express');
-const pool = require('../config/db');
-const handleDatabaseError = require('../utils/databaseError');
-const generateId = require('../utils/generateId');
+const express = require("express");
+const pool = require("../config/db");
+const handleDatabaseError = require("../utils/databaseError");
+const generateId = require("../utils/generateId");
 
 const router = express.Router();
 
 
-// OBTENER TODOS LOS COLABORADORES
-router.get('/', async (req, res) => {
+/* =========================================================
+   OBTENER TODOS LOS COLABORADORES
+   GET /api/collaborators
+   ========================================================= */
+
+router.get("/", async (req, res) => {
+
     try {
+
         const result = await pool.query(`
-            SELECT *
+            SELECT
+                id,
+                name,
+                role,
+                email,
+                created_at
             FROM collaborators
             ORDER BY created_at DESC
         `);
@@ -18,115 +29,343 @@ router.get('/', async (req, res) => {
         res.json(result.rows);
 
     } catch (error) {
-        console.error('Error obteniendo colaboradores:', error);
 
-        res.status(500).json({
-            message: 'Error obteniendo colaboradores'
-        });
+        console.error(
+            "Error obteniendo colaboradores:",
+            error
+        );
+
+        return handleDatabaseError(
+            error,
+            res
+        );
+
     }
+
 });
 
 
-// CREAR UN COLABORADOR
-router.post('/', async (req, res) => {
-    try {
-        const { id, name, role, email } = req.body;
-        const collaboratorId = id || generateId('collaborator');
+/* =========================================================
+   CREAR COLABORADOR
+   POST /api/collaborators
+   ========================================================= */
 
-        if (!name) {
+router.post("/", async (req, res) => {
+
+    try {
+
+        const {
+            id,
+            name,
+            role,
+            email
+        } = req.body;
+
+
+        /* -----------------------------------------------------
+           VALIDAR NOMBRE
+           ----------------------------------------------------- */
+
+        const cleanName =
+            typeof name === "string"
+                ? name.trim()
+                : "";
+
+
+        if (!cleanName) {
+
             return res.status(400).json({
-                message: 'El id y el nombre son obligatorios'
+                message:
+                    "El nombre del colaborador es obligatorio"
             });
+
         }
 
-        const result = await pool.query(
-            `INSERT INTO collaborators (
-                id,
-                name,
-                role,
-                email
-            )
-            VALUES ($1, $2, $3, $4)
-            RETURNING *`,
-            [
-                collaboratorId,
-                name,
-                role || null,
-                email || null
-            ]
-        );
 
-        res.status(201).json(result.rows[0]);
+        /* -----------------------------------------------------
+           GENERAR ID AUTOMÁTICAMENTE
+           ----------------------------------------------------- */
+
+        const collaboratorId =
+            id ||
+            generateId(
+                "collaborator"
+            );
+
+
+        /* -----------------------------------------------------
+           NORMALIZAR CAMPOS OPCIONALES
+           ----------------------------------------------------- */
+
+        const cleanRole =
+            typeof role === "string" &&
+            role.trim()
+                ? role.trim()
+                : null;
+
+
+        const cleanEmail =
+            typeof email === "string" &&
+            email.trim()
+                ? email.trim()
+                : null;
+
+
+        /* -----------------------------------------------------
+           INSERTAR EN POSTGRESQL
+           ----------------------------------------------------- */
+
+        const result =
+            await pool.query(
+                `
+                INSERT INTO collaborators (
+                    id,
+                    name,
+                    role,
+                    email
+                )
+                VALUES (
+                    $1,
+                    $2,
+                    $3,
+                    $4
+                )
+                RETURNING
+                    id,
+                    name,
+                    role,
+                    email,
+                    created_at
+                `,
+                [
+                    collaboratorId,
+                    cleanName,
+                    cleanRole,
+                    cleanEmail
+                ]
+            );
+
+
+        return res
+            .status(201)
+            .json(
+                result.rows[0]
+            );
+
 
     } catch (error) {
-    return handleDatabaseError(error, res);
-}
-});
-// ACTUALIZAR UN COLABORADOR
-router.put('/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { name, role, email } = req.body;
 
-        if (!name) {
-            return res.status(400).json({
-                message: 'El nombre es obligatorio'
-            });
-        }
-
-        const result = await pool.query(
-            `UPDATE collaborators
-             SET name = $1,
-                 role = $2,
-                 email = $3
-             WHERE id = $4
-             RETURNING *`,
-            [
-                name,
-                role || null,
-                email || null,
-                id
-            ]
+        return handleDatabaseError(
+            error,
+            res
         );
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({
-                message: 'Colaborador no encontrado'
-            });
-        }
-
-        res.json(result.rows[0]);
-
-    } catch (error) {
-        return handleDatabaseError(error, res);
     }
+
 });
-// ELIMINAR UN COLABORADOR
-router.delete('/:id', async (req, res) => {
+
+
+/* =========================================================
+   ACTUALIZAR COLABORADOR
+   PUT /api/collaborators/:id
+   ========================================================= */
+
+router.put("/:id", async (req, res) => {
+
     try {
-        const { id } = req.params;
 
-        const result = await pool.query(
-            `DELETE FROM collaborators
-             WHERE id = $1
-             RETURNING *`,
-            [id]
-        );
+        const { id } =
+            req.params;
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({
-                message: 'Colaborador no encontrado'
+
+        const {
+            name,
+            role,
+            email
+        } = req.body;
+
+
+        /* -----------------------------------------------------
+           VALIDAR NOMBRE
+           ----------------------------------------------------- */
+
+        const cleanName =
+            typeof name === "string"
+                ? name.trim()
+                : "";
+
+
+        if (!cleanName) {
+
+            return res.status(400).json({
+                message:
+                    "El nombre del colaborador es obligatorio"
             });
+
         }
 
-        res.json({
-            message: 'Colaborador eliminado correctamente',
-            collaborator: result.rows[0]
+
+        /* -----------------------------------------------------
+           NORMALIZAR CAMPOS
+           ----------------------------------------------------- */
+
+        const cleanRole =
+            typeof role === "string" &&
+            role.trim()
+                ? role.trim()
+                : null;
+
+
+        const cleanEmail =
+            typeof email === "string" &&
+            email.trim()
+                ? email.trim()
+                : null;
+
+
+        /* -----------------------------------------------------
+           ACTUALIZAR EN POSTGRESQL
+           ----------------------------------------------------- */
+
+        const result =
+            await pool.query(
+                `
+                UPDATE collaborators
+
+                SET
+                    name = $1,
+                    role = $2,
+                    email = $3
+
+                WHERE id = $4
+
+                RETURNING
+                    id,
+                    name,
+                    role,
+                    email,
+                    created_at
+                `,
+                [
+                    cleanName,
+                    cleanRole,
+                    cleanEmail,
+                    id
+                ]
+            );
+
+
+        /* -----------------------------------------------------
+           VALIDAR EXISTENCIA
+           ----------------------------------------------------- */
+
+        if (
+            result.rows.length ===
+            0
+        ) {
+
+            return res
+                .status(404)
+                .json({
+                    message:
+                        "Colaborador no encontrado"
+                });
+
+        }
+
+
+        return res.json(
+            result.rows[0]
+        );
+
+
+    } catch (error) {
+
+        return handleDatabaseError(
+            error,
+            res
+        );
+
+    }
+
+});
+
+
+/* =========================================================
+   ELIMINAR COLABORADOR
+   DELETE /api/collaborators/:id
+   ========================================================= */
+
+router.delete("/:id", async (req, res) => {
+
+    try {
+
+        const { id } =
+            req.params;
+
+
+        const result =
+            await pool.query(
+                `
+                DELETE FROM collaborators
+
+                WHERE id = $1
+
+                RETURNING
+                    id,
+                    name,
+                    role,
+                    email,
+                    created_at
+                `,
+                [id]
+            );
+
+
+        /* -----------------------------------------------------
+           VALIDAR EXISTENCIA
+           ----------------------------------------------------- */
+
+        if (
+            result.rows.length ===
+            0
+        ) {
+
+            return res
+                .status(404)
+                .json({
+                    message:
+                        "Colaborador no encontrado"
+                });
+
+        }
+
+
+        return res.json({
+
+            message:
+                "Colaborador eliminado correctamente",
+
+            collaborator:
+                result.rows[0]
+
         });
 
+
     } catch (error) {
-        return handleDatabaseError(error, res);
+
+        return handleDatabaseError(
+            error,
+            res
+        );
+
     }
+
 });
+
+
+/* =========================================================
+   EXPORTAR ROUTER
+   ========================================================= */
 
 module.exports = router;
